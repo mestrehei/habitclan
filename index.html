@@ -351,9 +351,11 @@ const CATEGORIES = [
 ];
 
 const FREQUENCIES = [
-  { id: 'daily', name: 'Diária', label: 'por dia' },
-  { id: 'weekly', name: 'Semanal', label: 'por semana' },
-  { id: 'monthly', name: 'Mensal', label: 'por mês' },
+  { id: 'daily',    name: 'Diária',          label: 'por dia',             short: 'dia' },
+  { id: 'weekdays', name: 'Dias de semana',  label: 'seg-sex (por dia)',   short: 'seg-sex' },
+  { id: 'weekend',  name: 'Final de semana', label: 'sab-dom (por dia)',   short: 'sab-dom' },
+  { id: 'weekly',   name: 'Semanal',         label: 'por semana',          short: 'semana' },
+  { id: 'monthly',  name: 'Mensal',          label: 'por mes',             short: 'mes' },
 ];
 
 const EMOJI_OPTIONS = ['🦾', '💫', '🦄', '🌈', '🚀', '⚡', '🔥', '🌟', '🎮', '🎯', '🦸', '🧙', '🐉', '🦊', '🐼', '🐨', '🦁', '🐯', '🦖', '👑', '🎨', '🎸', '⚽', '🏀', '🧚', '🧜', '🌸', '🍀', '🌺', '🎪'];
@@ -368,6 +370,16 @@ const weekKey = (d = new Date()) => {
   return `${year}-W${week}`;
 };
 const monthKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+const isFrequencyActiveToday = (frequency) => {
+  const day = new Date().getDay(); // 0=dom, 1=seg, ..., 6=sab
+  if (frequency === 'daily') return true;
+  if (frequency === 'weekdays') return day >= 1 && day <= 5;
+  if (frequency === 'weekend') return day === 0 || day === 6;
+  if (frequency === 'weekly') return true;
+  if (frequency === 'monthly') return true;
+  return true;
+};
 
 const blendColors = (colors) => {
   if (colors.length === 0) return null;
@@ -517,7 +529,7 @@ function HabitClan() {
     if (!task) return { current: 0, goal: 1 };
     const goal = getGoalForPlayer(task, playerId);
     let done = 0;
-    if (task.frequency === 'daily') {
+    if (task.frequency === 'daily' || task.frequency === 'weekdays' || task.frequency === 'weekend') {
       done = completions.filter(c => c.taskId === taskId && c.playerId === playerId && c.date === todayKey()).length;
     } else if (task.frequency === 'weekly') {
       done = completions.filter(c => c.taskId === taskId && c.playerId === playerId && c.weekKey === weekKey()).length;
@@ -986,7 +998,10 @@ function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress
   return (
     <div className="space-y-3">
       {players.map(player => {
-        const playerTasks = getTasksForPlayer(player.id);
+        const allPlayerTasks = getTasksForPlayer(player.id);
+        // Tarefas ativas hoje (weekdays só seg-sex, weekend só sab-dom)
+        const playerTasks = allPlayerTasks.filter(t => isFrequencyActiveToday(t.frequency));
+        const inactiveTasks = allPlayerTasks.filter(t => !isFrequencyActiveToday(t.frequency));
         const monthPts = getPoints(player.id, 'month');
         const dayPts = getPoints(player.id, 'day');
         const streak = getStreak(player.id);
@@ -1101,10 +1116,16 @@ function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgre
   const badges = getBadges(player.id);
 
   const byFreq = {
-    daily: tasks.filter(t => t.frequency === 'daily'),
-    weekly: tasks.filter(t => t.frequency === 'weekly'),
-    monthly: tasks.filter(t => t.frequency === 'monthly'),
+    daily:    tasks.filter(t => t.frequency === 'daily'),
+    weekdays: tasks.filter(t => t.frequency === 'weekdays'),
+    weekend:  tasks.filter(t => t.frequency === 'weekend'),
+    weekly:   tasks.filter(t => t.frequency === 'weekly'),
+    monthly:  tasks.filter(t => t.frequency === 'monthly'),
   };
+  // Tarefas ativas hoje (weekdays e weekend dependem do dia)
+  const todayInactive = new Set(
+    tasks.filter(t => !isFrequencyActiveToday(t.frequency)).map(t => t.id)
+  );
 
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter(t => isTaskDone(t.id, player.id)).length;
@@ -1166,10 +1187,10 @@ function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgre
                   return (
                     <button
                       key={task.id}
-                      onClick={() => !done && onComplete(task.id, player.id)}
-                      disabled={done}
-                      title={`${task.name} · ${points} pts · ${progress.current}/${progress.goal}`}
-                      className={`task-icon-btn relative flex flex-col items-center justify-center rounded-xl sm:rounded-2xl p-1.5 sm:p-2 ${done ? 'done cursor-not-allowed' : 'cursor-pointer'}`}
+                      onClick={() => !done && !todayInactive.has(task.id) && onComplete(task.id, player.id)}
+                      disabled={done || todayInactive.has(task.id)}
+                      title={todayInactive.has(task.id) ? `${task.name} · Não vale hoje` : `${task.name} · ${points} pts · ${progress.current}/${progress.goal}`}
+                      className={`task-icon-btn relative flex flex-col items-center justify-center rounded-xl sm:rounded-2xl p-1.5 sm:p-2 ${done ? 'done cursor-not-allowed' : todayInactive.has(task.id) ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer'}`}
                       style={{
                         aspectRatio: '1 / 1',
                         background: done ? '#1a1a2e' : `linear-gradient(135deg, ${cat.color}25, ${cat.color}08)`,
@@ -1785,7 +1806,7 @@ function ManageView({ tasks, players, onAdd, onEdit, onRemove, getGoalForPlayer,
                     {!hasCustomPerPlayer && (
                       <>
                         <span>·</span>
-                        <span>meta {task.goal}x</span>
+                        <span>meta {task.goal}x {FREQUENCIES.find(f => f.id === task.frequency)?.short || ""}</span>
                         <span>·</span>
                         <span className="text-yellow-300 font-bold">{task.points} pts</span>
                       </>
@@ -1854,16 +1875,16 @@ function TaskModal({ task, players, onClose, onSave }) {
     let finalPerPlayerPoints = {};
     if (individualGoals) {
       targetPlayers.forEach(p => {
-        finalPerPlayerGoals[p.id] = Math.max(1, perPlayerGoals[p.id] || goal);
-        finalPerPlayerPoints[p.id] = Math.max(1, perPlayerPoints[p.id] || points);
+        finalPerPlayerGoals[p.id] = Math.max(1, Number(perPlayerGoals[p.id]) || Number(goal) || 1);
+        finalPerPlayerPoints[p.id] = Math.max(1, Number(perPlayerPoints[p.id]) || Number(points) || 1);
       });
     }
     onSave({
       id: task?.id,
       name: name.trim(),
       category, frequency,
-      goal: Math.max(1, goal),
-      points: Math.max(1, points),
+      goal: Math.max(1, Number(goal) || 1),
+      points: Math.max(1, Number(points) || 1),
       assignedTo: assignMode === 'all' ? 'all' : assignedIds,
       perPlayerGoals: finalPerPlayerGoals,
       perPlayerPoints: finalPerPlayerPoints,
@@ -1932,11 +1953,11 @@ function TaskModal({ task, players, onClose, onSave }) {
             )}
           </Field>
 
-          <Field label="Frequência">
-            <div className="grid grid-cols-3 gap-2">
+          <Field label="Frequencia">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {FREQUENCIES.map(f => (
                 <button key={f.id} onClick={() => setFrequency(f.id)}
-                  className={`p-2 sm:p-3 rounded-xl border-2 font-bold transition-all text-xs sm:text-sm ${frequency === f.id ? 'border-yellow-400 bg-yellow-400/10 text-yellow-300' : 'border-white/10 text-white/60'}`}>
+                  className={`p-2 sm:p-3 rounded-xl border-2 font-bold transition-all text-xs ${frequency === f.id ? 'border-yellow-400 bg-yellow-400/10 text-yellow-300' : 'border-white/10 text-white/60'}`}>
                   {f.name}
                 </button>
               ))}
@@ -1957,11 +1978,15 @@ function TaskModal({ task, players, onClose, onSave }) {
           {!individualGoals ? (
             <div className="grid grid-cols-2 gap-3">
               <Field label={`Meta (${FREQUENCIES.find(f => f.id === frequency)?.label})`}>
-                <input type="number" min="1" value={goal} onChange={e => setGoal(parseInt(e.target.value) || 1)}
+                <input type="number" min="1" value={goal}
+                  onChange={e => setGoal(e.target.value === '' ? '' : e.target.value)}
+                  onBlur={e => { if (!e.target.value || Number(e.target.value) < 1) setGoal(1); }}
                   className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-400" />
               </Field>
               <Field label="Pontos por vez">
-                <input type="number" min="1" value={points} onChange={e => setPoints(parseInt(e.target.value) || 1)}
+                <input type="number" min="1" value={points}
+                  onChange={e => setPoints(e.target.value === '' ? '' : e.target.value)}
+                  onBlur={e => { if (!e.target.value || Number(e.target.value) < 1) setPoints(1); }}
                   className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-400" />
               </Field>
             </div>
@@ -1976,7 +2001,7 @@ function TaskModal({ task, players, onClose, onSave }) {
                       <div>
                         <input type="number" min="1"
                           value={perPlayerGoals[p.id] ?? goal}
-                          onChange={e => setPerPlayerGoals({ ...perPlayerGoals, [p.id]: parseInt(e.target.value) || 1 })}
+                          onChange={e => setPerPlayerGoals({ ...perPlayerGoals, [p.id]: e.target.value === '' ? '' : e.target.value })} onBlur={e => { if (!e.target.value || Number(e.target.value) < 1) setPerPlayerGoals({ ...perPlayerGoals, [p.id]: 1 }); }}
                           placeholder="Meta"
                           className="w-full bg-black/50 border-2 border-white/10 rounded-lg px-2 py-1.5 text-white text-sm focus:border-cyan-400" />
                         <div className="text-[9px] text-white/40 text-center mt-0.5">meta</div>
@@ -1984,7 +2009,7 @@ function TaskModal({ task, players, onClose, onSave }) {
                       <div>
                         <input type="number" min="1"
                           value={perPlayerPoints[p.id] ?? points}
-                          onChange={e => setPerPlayerPoints({ ...perPlayerPoints, [p.id]: parseInt(e.target.value) || 1 })}
+                          onChange={e => setPerPlayerPoints({ ...perPlayerPoints, [p.id]: e.target.value === '' ? '' : e.target.value })} onBlur={e => { if (!e.target.value || Number(e.target.value) < 1) setPerPlayerPoints({ ...perPlayerPoints, [p.id]: 1 }); }}
                           placeholder="Pts"
                           className="w-full bg-black/50 border-2 border-white/10 rounded-lg px-2 py-1.5 text-white text-sm focus:border-cyan-400" />
                         <div className="text-[9px] text-white/40 text-center mt-0.5">pontos</div>
