@@ -784,6 +784,10 @@ function HabitClan() {
         @keyframes celebrate { 0% { transform: scale(0) rotate(-180deg); opacity: 0; } 50% { transform: scale(1.2) rotate(10deg); opacity: 1; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
         @keyframes slideDown { 0% { transform: translate(-50%, -100%); opacity: 0; } 15% { transform: translate(-50%, 0); opacity: 1; } 85% { transform: translate(-50%, 0); opacity: 1; } 100% { transform: translate(-50%, -100%); opacity: 0; } }
         @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeInBg { from { opacity: 0; } to { opacity: 1; } }
+        .sheet-enter { animation: slideUp 0.32s cubic-bezier(0.32, 0.72, 0, 1); }
+        .sheet-bg { animation: fadeInBg 0.2s ease; }
         .grid-bg { background-image: linear-gradient(rgba(255,61,154,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.08) 1px, transparent 1px); background-size: 60px 60px; animation: gridShift 20s linear infinite; }
         .neon-text { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor; }
         .bungee { font-family: 'Bungee', system-ui, sans-serif; letter-spacing: 0.02em; }
@@ -2018,6 +2022,120 @@ function ManageView({ tasks, players, onAdd, onEdit, onRemove, getGoalForPlayer,
   );
 }
 
+// ============================================================
+// BOTTOM SHEET — componente reutilizável para todos os modais
+// Mobile: painel que sobe de baixo, tela quase cheia
+// Desktop: modal centralizado clássico
+// ============================================================
+function BottomSheet({ onClose, title, accentColor, onSave, saveLabel, saveDisabled, children, noPadding }) {
+  const sheetRef = React.useRef(null);
+  const startY = React.useRef(null);
+  const currentY = React.useRef(0);
+
+  // Swipe down para fechar (mobile)
+  const handleTouchStart = (e) => {
+    startY.current = e.touches[0].clientY;
+  };
+  const handleTouchMove = (e) => {
+    const delta = e.touches[0].clientY - startY.current;
+    if (delta > 0 && sheetRef.current) {
+      currentY.current = delta;
+      sheetRef.current.style.transform = `translateY(${delta}px)`;
+      sheetRef.current.style.transition = 'none';
+    }
+  };
+  const handleTouchEnd = () => {
+    if (sheetRef.current) {
+      sheetRef.current.style.transition = 'transform 0.3s cubic-bezier(0.32,0.72,0,1)';
+      if (currentY.current > 120) {
+        sheetRef.current.style.transform = 'translateY(100%)';
+        setTimeout(onClose, 280);
+      } else {
+        sheetRef.current.style.transform = 'translateY(0)';
+      }
+      currentY.current = 0;
+    }
+  };
+
+  const color = accentColor || '#FF3D9A';
+
+  return (
+    <div
+      className="sheet-bg fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex flex-col justify-end sm:justify-center sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      {/* SHEET PANEL */}
+      <div
+        ref={sheetRef}
+        className="sheet-enter w-full sm:max-w-lg sm:rounded-3xl flex flex-col relative"
+        style={{
+          background: 'linear-gradient(170deg, #16082a 0%, #0A0612 100%)',
+          borderTop: `2px solid ${color}`,
+          borderLeft: '1px solid rgba(255,255,255,0.08)',
+          borderRight: '1px solid rgba(255,255,255,0.08)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: `0 -8px 60px ${color}40, 0 0 0 1px ${color}20`,
+          maxHeight: '93vh',
+          borderRadius: '24px 24px 0 0',
+        }}
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Handle de arraste (mobile) */}
+        <div className="flex justify-center pt-2.5 pb-1 sm:hidden flex-shrink-0">
+          <div className="w-10 h-1 rounded-full bg-white/20" />
+        </div>
+
+        {/* HEADER FIXO */}
+        <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-white/8"
+          style={{ borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+          {/* Cancelar */}
+          <button
+            onClick={onClose}
+            className="text-white/60 hover:text-white font-semibold text-sm sm:text-base px-1 py-1 -ml-1 active:opacity-60 transition-opacity"
+            style={{ minWidth: '72px' }}
+          >
+            Cancelar
+          </button>
+
+          {/* Título */}
+          <h2 className="bungee text-sm sm:text-lg text-center flex-1 mx-2 truncate"
+            style={{ color }}>
+            {title}
+          </h2>
+
+          {/* Salvar / ação principal */}
+          {onSave ? (
+            <button
+              onClick={onSave}
+              disabled={saveDisabled}
+              className="font-bold text-sm sm:text-base px-3 py-1.5 rounded-xl transition-all active:scale-95 disabled:opacity-30"
+              style={{
+                background: saveDisabled ? 'rgba(255,255,255,0.1)' : color,
+                color: saveDisabled ? 'rgba(255,255,255,0.4)' : 'black',
+                minWidth: '72px',
+                textAlign: 'center',
+              }}
+            >
+              {saveLabel || 'Salvar'}
+            </button>
+          ) : (
+            <div style={{ minWidth: '72px' }} />
+          )}
+        </div>
+
+        {/* CONTEÚDO ROLÁVEL */}
+        <div className={`flex-1 overflow-y-auto scrollbar-custom ${noPadding ? '' : 'p-4 sm:p-6'}`}
+          style={{ overscrollBehavior: 'contain' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============== MODAL: TAREFA ==============
 function TaskModal({ task, players, onClose, onSave }) {
   const isEdit = !!task;
@@ -2068,18 +2186,15 @@ function TaskModal({ task, players, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
-        style={{ borderColor: '#FF3D9A', boxShadow: '0 0 50px rgba(255,61,154,0.4)' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h2 className="bungee text-lg sm:text-2xl text-white neon-text" style={{ color: '#FFD600' }}>
-            {isEdit ? 'EDITAR TAREFA' : 'NOVA TAREFA'}
-          </h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
-        </div>
-
-        <div className="space-y-4">
+    <BottomSheet
+      onClose={onClose}
+      title={isEdit ? 'EDITAR TAREFA' : 'NOVA TAREFA'}
+      accentColor="#FF3D9A"
+      onSave={submit}
+      saveLabel={isEdit ? 'Salvar' : 'Criar'}
+      saveDisabled={!name.trim()}
+    >
+      <div className="space-y-4">
           {/* Preview do emoji + nome */}
           <div className="flex items-center gap-3 bg-white/5 rounded-2xl p-3 border border-white/10">
             <div className="text-4xl flex-shrink-0"
@@ -2243,11 +2358,10 @@ function TaskModal({ task, players, onClose, onSave }) {
           <button onClick={submit} disabled={!name.trim()}
             className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #FFD600, #FF3D9A)', boxShadow: '0 0 20px rgba(255,61,154,0.4)' }}>
-            {isEdit ? 'SALVAR' : 'CRIAR TAREFA'}
+            {isEdit ? 'Salvar' : 'Criar Tarefa'}
           </button>
         </div>
-      </div>
-    </div>
+    </BottomSheet>
   );
 }
 
@@ -2263,16 +2377,8 @@ function Field({ label, children }) {
 // ============== MODAL: CONFIGURAÇÕES ==============
 function SettingsModal({ players, onClose, onAddPlayer, onEditPlayer, onRemovePlayer }) {
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
-        style={{ borderColor: '#00E5FF', boxShadow: '0 0 50px rgba(0,229,255,0.4)' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h2 className="bungee text-lg sm:text-2xl text-white neon-text" style={{ color: '#00E5FF' }}>⚙️ FAMÍLIA</h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
-        </div>
-
-        <div className="space-y-3 mb-4">
+    <BottomSheet onClose={onClose} title="⚙️ FAMÍLIA" accentColor="#00E5FF">
+      <div className="space-y-3 mb-4">
           {players.map(p => (
             <div key={p.id} className="flex items-center gap-3 p-3 rounded-2xl border-2"
               style={{ borderColor: p.color + '60', background: `linear-gradient(90deg, ${p.color}15, transparent)` }}>
@@ -2305,8 +2411,7 @@ function SettingsModal({ players, onClose, onAddPlayer, onEditPlayer, onRemovePl
           <UserPlus size={18} strokeWidth={3} />
           ADICIONAR MEMBRO
         </button>
-      </div>
-    </div>
+    </BottomSheet>
   );
 }
 
@@ -2323,16 +2428,15 @@ function PlayerModal({ player, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
-        style={{ borderColor: color, boxShadow: `0 0 50px ${color}60` }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h2 className="bungee text-lg sm:text-2xl text-white">{isEdit ? 'EDITAR MEMBRO' : 'NOVO MEMBRO'}</h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
-        </div>
-
-        <div className="space-y-4">
+    <BottomSheet
+      onClose={onClose}
+      title={isEdit ? 'EDITAR MEMBRO' : 'NOVO MEMBRO'}
+      accentColor={color}
+      onSave={submit}
+      saveLabel={isEdit ? 'Salvar' : 'Criar'}
+      saveDisabled={!name.trim()}
+    >
+      <div className="space-y-4">
           <div className="text-center">
             <div className="text-6xl sm:text-8xl mb-2" style={{ filter: `drop-shadow(0 0 20px ${color})` }}>{emoji}</div>
           </div>
@@ -2368,11 +2472,10 @@ function PlayerModal({ player, onClose, onSave }) {
           <button onClick={submit} disabled={!name.trim()}
             className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg disabled:opacity-40"
             style={{ background: `linear-gradient(135deg, ${color}, #FFD600)` }}>
-            {isEdit ? 'SALVAR' : 'CRIAR MEMBRO'}
+            {isEdit ? 'Salvar' : 'Criar Membro'}
           </button>
         </div>
-      </div>
-    </div>
+    </BottomSheet>
   );
 }
 
@@ -2413,18 +2516,15 @@ function RewardModal({ reward, onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
-        style={{ borderColor: '#FFD600', boxShadow: '0 0 50px rgba(255,214,0,0.4)' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h2 className="bungee text-lg sm:text-2xl text-white neon-text" style={{ color: '#FFD600' }}>
-            {isEdit ? 'EDITAR PRÊMIO' : 'NOVO PRÊMIO'}
-          </h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
-        </div>
-
-        <div className="space-y-4">
+    <BottomSheet
+      onClose={onClose}
+      title={isEdit ? 'EDITAR PRÊMIO' : 'NOVO PRÊMIO'}
+      accentColor="#FFD600"
+      onSave={submit}
+      saveLabel={isEdit ? 'Salvar' : 'Criar'}
+      saveDisabled={!name.trim()}
+    >
+      <div className="space-y-4">
           <div className="text-center">
             <div className="text-6xl sm:text-7xl mb-2">{icon}</div>
           </div>
@@ -2477,11 +2577,10 @@ function RewardModal({ reward, onClose, onSave }) {
           <button onClick={submit} disabled={!name.trim()}
             className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #FFD600, #FF3D9A)', boxShadow: '0 0 20px rgba(255,214,0,0.4)' }}>
-            {isEdit ? 'SALVAR' : 'CRIAR PRÊMIO'}
+            {isEdit ? 'Salvar' : 'Criar Prêmio'}
           </button>
         </div>
-      </div>
-    </div>
+    </BottomSheet>
   );
 }
 
@@ -2753,12 +2852,13 @@ function AllowanceView({ players, allowances, allowancePayments, getAllowanceCon
 
       {/* MODAL: Picker de quem vai receber mesada */}
       {showAddPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+        <div className="sheet-bg fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm"
           onClick={() => setShowAddPicker(false)}>
           <div
-            className="w-full max-w-sm rounded-3xl p-6"
-            style={{ background: '#0f1a10', border: '2px solid #76FF03', boxShadow: '0 0 60px rgba(118,255,3,0.35)' }}
+            className="sheet-enter w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-6"
+            style={{ background: '#0f1a10', border: '2px solid #76FF03', borderBottom: 'none', boxShadow: '0 -4px 60px rgba(118,255,3,0.35)' }}
             onClick={e => e.stopPropagation()}>
+          <div className="flex justify-center mb-3 sm:hidden"><div className="w-10 h-1 rounded-full bg-white/20" /></div>
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="bungee text-xl text-white" style={{ color: '#76FF03' }}>NOVA MESADA</h3>
@@ -2785,14 +2885,15 @@ function AllowanceView({ players, allowances, allowancePayments, getAllowanceCon
         </div>
       )}
 
-      {/* MODAL: Confirmação de exclusão inline (sem confirm()) */}
+      {/* MODAL: Confirmação de exclusão inline */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+        <div className="sheet-bg fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm"
           onClick={() => setConfirmDelete(null)}>
           <div
-            className="w-full max-w-sm rounded-3xl p-6"
-            style={{ background: '#1a0808', border: '2px solid #FF5252', boxShadow: '0 0 60px rgba(255,82,82,0.35)' }}
+            className="sheet-enter w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-6"
+            style={{ background: '#1a0808', border: '2px solid #FF5252', borderBottom: 'none', boxShadow: '0 -4px 60px rgba(255,82,82,0.35)' }}
             onClick={e => e.stopPropagation()}>
+          <div className="flex justify-center mb-3 sm:hidden"><div className="w-10 h-1 rounded-full bg-white/20" /></div>
             <div className="text-center mb-6">
               <div className="text-5xl mb-3" style={{ filter: `drop-shadow(0 0 12px ${confirmDelete.color})` }}>
                 {confirmDelete.emoji}
@@ -2991,12 +3092,17 @@ function TaskActionModal({ taskId, playerId, tasks, players, completions, getGoa
   if (!task || !player) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm"
+    <div className="sheet-bg fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm"
       onClick={onClose}>
       <div
-        className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5"
-        style={{ background: '#0f0a1e', border: '2px solid', borderColor: player.color + '80', boxShadow: `0 0 50px ${player.color}40` }}
+        className="sheet-enter w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 pb-8 sm:pb-5"
+        style={{ background: '#0f0a1e', border: '2px solid', borderColor: player.color + '80', boxShadow: `0 0 50px ${player.color}40`, maxHeight: '90vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}>
+
+        {/* Handle mobile */}
+        <div className="flex justify-center -mt-1 mb-3 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-white/20" />
+        </div>
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
@@ -3129,23 +3235,17 @@ function AllowanceConfigModal({ playerId, player, config, onClose, onSave }) {
     });
   };
 
+  const title = `${player?.emoji || ''} MESADA — ${player?.name || ''}`;
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#0a1a0a] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
-        style={{ borderColor: '#76FF03', boxShadow: '0 0 50px rgba(118,255,3,0.3)' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <span className="text-4xl" style={{ filter: `drop-shadow(0 0 10px ${player?.color})` }}>{player?.emoji}</span>
-            <div>
-              <h2 className="bungee text-lg sm:text-2xl text-white" style={{ color: '#76FF03' }}>MESADA</h2>
-              <div className="text-white/60 text-sm">{player?.name}</div>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
-        </div>
-
-        <div className="space-y-5">
+    <BottomSheet
+      onClose={onClose}
+      title={title}
+      accentColor="#76FF03"
+      onSave={submit}
+      saveLabel="Salvar"
+      saveDisabled={!baseAmount || Number(baseAmount) <= 0}
+    >
+      <div className="space-y-5">
           <div>
             <label className="block text-[10px] sm:text-xs uppercase tracking-widest text-white/60 mb-2 font-bold">Valor base mensal (R$)</label>
             <input type="number" min="0" step="0.01" value={baseAmount}
@@ -3214,11 +3314,10 @@ function AllowanceConfigModal({ playerId, player, config, onClose, onSave }) {
           <button onClick={submit}
             className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg"
             style={{ background: 'linear-gradient(135deg, #76FF03, #00E5FF)', boxShadow: '0 0 20px rgba(118,255,3,0.4)' }}>
-            SALVAR CONFIGURAÇÃO
+            Salvar Configuração
           </button>
         </div>
-      </div>
-    </div>
+    </BottomSheet>
   );
 }
 
@@ -3258,20 +3357,17 @@ function PaymentModal({ data, player, existingPayment, calcTotal, calcBonus, get
     });
   };
 
+  const payTitle = `${player?.emoji || ''} ${player?.name || ''} — PAGAMENTO`;
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#0a1a0a] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-md mx-auto my-4 sm:my-6"
-        style={{ borderColor: player?.color || '#76FF03', boxShadow: `0 0 50px ${player?.color || '#76FF03'}40` }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h2 className="bungee text-lg sm:text-2xl text-white">PAGAMENTO</h2>
-            <div className="text-white/60 text-sm capitalize">{player?.emoji} {player?.name} · {monthLabel}</div>
-          </div>
-          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
-        </div>
-
-        <div className="space-y-4">
+    <BottomSheet
+      onClose={onClose}
+      title={payTitle}
+      accentColor={player?.color || '#76FF03'}
+      onSave={submit}
+      saveLabel={existingPayment ? 'Atualizar' : 'Salvar'}
+    >
+      <div className="space-y-4">
+        <p className="text-xs text-white/50 capitalize text-center -mt-1 mb-1">{monthLabel}</p>
           {/* Resumo calculado */}
           <div className="bg-black/40 border border-white/10 rounded-xl p-3 sm:p-4">
             <div className="flex items-center justify-between text-sm mb-2">
@@ -3330,11 +3426,10 @@ function PaymentModal({ data, player, existingPayment, calcTotal, calcBonus, get
           <button onClick={submit}
             className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg"
             style={{ background: `linear-gradient(135deg, ${player?.color || '#76FF03'}, #76FF03)`, boxShadow: '0 0 20px rgba(118,255,3,0.4)' }}>
-            {existingPayment ? 'ATUALIZAR' : 'SALVAR'}
+            {existingPayment ? 'Atualizar' : 'Salvar'}
           </button>
         </div>
-      </div>
-    </div>
+    </BottomSheet>
   );
 }
 
