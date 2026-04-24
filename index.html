@@ -545,6 +545,20 @@ function HabitClan() {
     return p.current >= p.goal;
   };
 
+  // Verifica se já marcou essa tarefa hoje (para saber se deve mostrar opções)
+  const isTaskDoneToday = (taskId, playerId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return false;
+    const doneToday = completions.filter(c =>
+      c.taskId === taskId && c.playerId === playerId && c.date === todayKey()
+    ).length;
+    // Para weekly/monthly: limite é 1x/dia
+    if (task.frequency === 'weekly' || task.frequency === 'monthly') return doneToday >= 1;
+    // Para daily/weekdays/weekend: verifica contra a meta
+    const goal = getGoalForPlayer(task, playerId);
+    return doneToday >= goal;
+  };
+
   const completeTask = (taskId, playerId) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -842,13 +856,13 @@ function HabitClan() {
               <EmptyHome />
             ) : homeMode === 'compact' ? (
               <CompactHomeView players={players} tasks={tasks} getPoints={getPoints} getStreak={getStreak}
-                getTaskProgress={getTaskProgress} isTaskDone={isTaskDone} onComplete={completeTask}
-                onTaskAction={(taskId, playerId) => setShowTaskActionModal({ taskId, playerId })}
+                getTaskProgress={getTaskProgress} isTaskDone={isTaskDone} isTaskDoneToday={isTaskDoneToday}
+                onComplete={completeTask} onTaskAction={(taskId, playerId) => setShowTaskActionModal({ taskId, playerId })}
                 getTasksForPlayer={getTasksForPlayer} completions={completions} />
             ) : (
               <DetailedHomeView players={players} tasks={tasks} getPoints={getPoints} getStreak={getStreak}
-                getTaskProgress={getTaskProgress} isTaskDone={isTaskDone} onComplete={completeTask}
-                onTaskAction={(taskId, playerId) => setShowTaskActionModal({ taskId, playerId })}
+                getTaskProgress={getTaskProgress} isTaskDone={isTaskDone} isTaskDoneToday={isTaskDoneToday}
+                onComplete={completeTask} onTaskAction={(taskId, playerId) => setShowTaskActionModal({ taskId, playerId })}
                 getBadges={getBadges} getTasksForPlayer={getTasksForPlayer} getPointsForPlayer={getPointsForPlayer}
                 completions={completions} />
             )}
@@ -1061,7 +1075,7 @@ function EmptyHome() {
 }
 
 // ============== HOME COMPACT (nova visão limpa) ==============
-function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, onComplete, onTaskAction, getTasksForPlayer, completions }) {
+function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, isTaskDoneToday, onComplete, onTaskAction, getTasksForPlayer, completions }) {
   return (
     <div className="space-y-3">
       {players.map(player => {
@@ -1073,7 +1087,8 @@ function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress
         const dayPts = getPoints(player.id, 'day');
         const streak = getStreak(player.id);
         const totalTasks = playerTasks.length;
-        const doneTasks = playerTasks.filter(t => isTaskDone(t.id, player.id)).length;
+        // doneTasks conta tarefas com marcação hoje (para barra de progresso do dia)
+        const doneTasks = playerTasks.filter(t => isTaskDoneToday(t.id, player.id)).length;
         const completionPct = totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0;
 
         return (
@@ -1115,38 +1130,42 @@ function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress
               <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-custom pb-1">
                 {playerTasks.map(task => {
                   const cat = CATEGORIES.find(c => c.id === task.category) || CATEGORIES[5];
-                  const done = isTaskDone(task.id, player.id);
+                  const done = isTaskDone(task.id, player.id);           // meta total atingida
+                  const doneToday = isTaskDoneToday(task.id, player.id); // marcou hoje (limite diário)
+                  const canMark = !doneToday && !done;                   // pode marcar agora
                   const progress = getTaskProgress(task.id, player.id);
                   const pct = Math.min(100, (progress.current / progress.goal) * 100);
+                  // Cor do ícone: verde do player se marcou hoje, cor da categoria se não
+                  const markedColor = doneToday ? player.color : cat.color;
 
                   return (
                     <button
                       key={task.id}
                       onClick={() => {
-                        if (done) {
-                          onTaskAction(task.id, player.id);
+                        if (doneToday || done) {
+                          onTaskAction(task.id, player.id); // já marcou hoje → abre modal
                         } else {
-                          onComplete(task.id, player.id);
+                          onComplete(task.id, player.id);   // não marcou → marca
                         }
                       }}
                       onContextMenu={e => { e.preventDefault(); onTaskAction(task.id, player.id); }}
-                      title={done ? `${task.name} · Toque para opções` : `${task.name} · ${progress.current}/${progress.goal}`}
-                      className={`task-icon-btn relative flex items-center justify-center rounded-xl flex-shrink-0 cursor-pointer`}
+                      title={doneToday ? `${task.name} · Toque para opções` : `${task.name} · ${progress.current}/${progress.goal}`}
+                      className="task-icon-btn relative flex items-center justify-center rounded-xl flex-shrink-0 cursor-pointer"
                       style={{
                         width: '44px',
                         height: '44px',
-                        background: done ? `${player.color}30` : `linear-gradient(135deg, ${cat.color}30, ${cat.color}10)`,
-                        border: `1.5px solid ${done ? player.color + '99' : cat.color + 'cc'}`,
-                        boxShadow: done ? `0 0 8px ${player.color}50` : `0 0 8px ${cat.color}30`,
+                        background: doneToday ? `${player.color}30` : `linear-gradient(135deg, ${cat.color}30, ${cat.color}10)`,
+                        border: `1.5px solid ${doneToday ? player.color + 'cc' : cat.color + '99'}`,
+                        boxShadow: doneToday ? `0 0 10px ${player.color}60` : `0 0 6px ${cat.color}30`,
                       }}
                     >
                       <div className="text-xl">{cat.icon}</div>
-                      {done && (
+                      {doneToday && (
                         <div className="absolute -top-0.5 -right-0.5 rounded-full p-0.5" style={{ background: player.color }}>
                           <Check size={8} className="text-black" strokeWidth={3} />
                         </div>
                       )}
-                      {!done && progress.goal > 1 && (
+                      {!doneToday && progress.goal > 1 && (
                         <>
                           <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/40 rounded-b-xl overflow-hidden">
                             <div className="h-full" style={{ width: `${pct}%`, background: cat.color }} />
@@ -1169,20 +1188,21 @@ function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress
 }
 
 // ============== HOME DETAILED (a antiga, com cards maiores) ==============
-function DetailedHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, onComplete, onTaskAction, getBadges, getTasksForPlayer, getPointsForPlayer, completions }) {
+function DetailedHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, isTaskDoneToday, onComplete, onTaskAction, getBadges, getTasksForPlayer, getPointsForPlayer, completions }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
       {players.map(player => (
         <PlayerCardDetailed key={player.id} player={player} tasks={getTasksForPlayer(player.id)}
           getPoints={getPoints} getStreak={getStreak} getTaskProgress={getTaskProgress}
-          isTaskDone={isTaskDone} onComplete={onComplete} onTaskAction={onTaskAction} getBadges={getBadges}
+          isTaskDone={isTaskDone} isTaskDoneToday={isTaskDoneToday} onComplete={onComplete}
+          onTaskAction={onTaskAction} getBadges={getBadges}
           getPointsForPlayer={getPointsForPlayer} completions={completions} />
       ))}
     </div>
   );
 }
 
-function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, onComplete, onTaskAction, getBadges, getPointsForPlayer, completions }) {
+function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, isTaskDoneToday, onComplete, onTaskAction, getBadges, getPointsForPlayer, completions }) {
   const monthPts = getPoints(player.id, 'month');
   const dayPts = getPoints(player.id, 'day');
   const streak = getStreak(player.id);
@@ -1253,6 +1273,7 @@ function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgre
                 {list.map(task => {
                   const cat = CATEGORIES.find(c => c.id === task.category) || CATEGORIES[5];
                   const done = isTaskDone(task.id, player.id);
+                  const doneToday = isTaskDoneToday(task.id, player.id);
                   const progress = getTaskProgress(task.id, player.id);
                   const pct = Math.min(100, (progress.current / progress.goal) * 100);
                   const points = getPointsForPlayer(task, player.id);
@@ -1262,30 +1283,30 @@ function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgre
                       key={task.id}
                       onClick={() => {
                         if (todayInactive.has(task.id)) return;
-                        if (done) onTaskAction(task.id, player.id);
+                        if (doneToday || done) onTaskAction(task.id, player.id);
                         else onComplete(task.id, player.id);
                       }}
                       onContextMenu={e => { e.preventDefault(); if (!todayInactive.has(task.id)) onTaskAction(task.id, player.id); }}
                       disabled={todayInactive.has(task.id)}
-                      title={todayInactive.has(task.id) ? `${task.name} · Nao vale hoje` : done ? `${task.name} · Toque para opcoes` : `${task.name} · ${points} pts · ${progress.current}/${progress.goal}`}
+                      title={todayInactive.has(task.id) ? `${task.name} · Nao vale hoje` : (doneToday || done) ? `${task.name} · Toque para opcoes` : `${task.name} · ${points} pts · ${progress.current}/${progress.goal}`}
                       className={`task-icon-btn relative flex flex-col items-center justify-center rounded-xl sm:rounded-2xl p-1.5 sm:p-2 ${todayInactive.has(task.id) ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer'}`}
                       style={{
                         aspectRatio: '1 / 1',
-                        background: done ? '#1a1a2e' : `linear-gradient(135deg, ${cat.color}25, ${cat.color}08)`,
-                        border: `2px solid ${done ? '#2a2a3e' : cat.color + 'aa'}`,
-                        boxShadow: done ? 'none' : `0 0 12px ${cat.color}40`,
+                        background: doneToday ? `${player.color}25` : done ? '#1a1a2e' : `linear-gradient(135deg, ${cat.color}25, ${cat.color}08)`,
+                        border: `2px solid ${doneToday ? player.color + 'cc' : done ? '#2a2a3e' : cat.color + 'aa'}`,
+                        boxShadow: doneToday ? `0 0 12px ${player.color}50` : done ? 'none' : `0 0 12px ${cat.color}40`,
                       }}
                     >
                       <div className="text-xl sm:text-2xl leading-none">{cat.icon}</div>
                       <div className="text-[8px] sm:text-[9px] text-white/70 mt-0.5 sm:mt-1 font-bold leading-tight text-center w-full px-0.5" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         {task.name}
                       </div>
-                      {done && (
+                      {doneToday && (
                         <div className="absolute -top-1 -right-1 rounded-full p-0.5" style={{ background: player.color }}>
                           <Check size={10} className="text-black" strokeWidth={3} />
                         </div>
                       )}
-                      {!done && progress.goal > 1 && (
+                      {!doneToday && progress.goal > 1 && (
                         <>
                           <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40 rounded-b-xl sm:rounded-b-2xl overflow-hidden">
                             <div className="h-full" style={{ width: `${pct}%`, background: cat.color }} />
