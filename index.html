@@ -285,6 +285,7 @@
     window.storage = firebaseStorage;
 
 
+// ============== SENHA FAMILIAR: Hecr1202 (definida no HTML wrapper)
 // ============== NOME DO APP (troque aqui se preferir outro) ==============
 const APP_NAME = { first: 'HABIT', second: 'CLAN' };
 // Outras opções: { first: 'TRIBE', second: 'TRACK' }, { first: 'FAM', second: 'TRACK' }, { first: 'TASK', second: 'TRIBE' }
@@ -359,6 +360,18 @@ const FREQUENCIES = [
 ];
 
 const EMOJI_OPTIONS = ['🦾', '💫', '🦄', '🌈', '🚀', '⚡', '🔥', '🌟', '🎮', '🎯', '🦸', '🧙', '🐉', '🦊', '🐼', '🐨', '🦁', '🐯', '🦖', '👑', '🎨', '🎸', '⚽', '🏀', '🧚', '🧜', '🌸', '🍀', '🌺', '🎪'];
+
+// Emojis para tarefas — organizados por grupo temático
+const TASK_EMOJIS = {
+  'Saúde & Corpo': ['🏋️','🤸','🧘','🏃','🚴','🥊','🤼','⛹️','🏊','🚶','🧗','🤾','🏇','🎽','💪','🦵','🫀','🥗','🥤','💊','🛌','🧖','🛁'],
+  'Mente & Estudo': ['📚','📖','✏️','📝','🎓','🧠','💡','🔬','🔭','🎯','🧩','♟️','📐','📏','🖊️','📓','📒','📔','🗒️','💻','🖥️','📊','📈'],
+  'Casa & Rotina': ['🏠','🧹','🧺','🧽','🍽️','🛒','🌿','🪴','🔧','🔨','🪣','🗑️','🛏️','🚿','🪥','🧴','🧻','🪟','🚪','🍳','☕','🫖','🧁'],
+  'Família & Social': ['👨‍👩‍👧','❤️','🤝','👋','💬','📱','📞','✉️','🎁','🎂','🥳','🤗','👏','🙌','💑','👨‍👩‍👦','🫂','💌','🎉','🎊'],
+  'Trabalho & Finanças': ['💼','📋','✅','⏰','📅','🗓️','💰','💳','🏦','📊','📈','🖨️','🖱️','⌨️','📌','📎','🗂️','📁','🗃️','💹','🤑','💵'],
+  'Hobbies & Lazer': ['🎵','🎹','🎸','🎮','🎲','🃏','🎭','🎬','📷','🎨','🖌️','✂️','🧶','🪡','🎯','⛳','🎣','🏄','🧩','📺','📻','🎤','🎧'],
+  'Natureza & Pets': ['🐕','🐈','🐇','🌱','🌳','🌻','🌺','🍃','🌊','☀️','🌙','⭐','🦋','🐝','🐾','🪸','🌈','❄️','🔥','💧','🌍'],
+  'Alimentação': ['🥗','🥦','🍎','🍌','🥑','🍱','🥪','🍜','🍕','🥩','🐟','🥚','🧃','💧','🍵','🍇','🫐','🍓','🥕','🥝'],
+};
 const COLOR_OPTIONS = ['#00E5FF', '#FF3D9A', '#FFD600', '#76FF03', '#B388FF', '#FF9100', '#18FFFF', '#F50057', '#FF5252', '#40C4FF'];
 
 // ============== UTILS ==============
@@ -370,6 +383,13 @@ const weekKey = (d = new Date()) => {
   return `${year}-W${week}`;
 };
 const monthKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+// Retorna o ícone visual da tarefa (emoji próprio ou ícone da categoria)
+const getTaskIcon = (task) => {
+  if (task.emoji) return task.emoji;
+  const cat = CATEGORIES.find(c => c.id === task.category);
+  return cat?.icon || '⭐';
+};
 
 const isFrequencyActiveToday = (frequency) => {
   const day = new Date().getDay(); // 0=dom, 1=seg, ..., 6=sab
@@ -590,7 +610,7 @@ function HabitClan() {
 
     const player = players.find(p => p.id === playerId);
     const cat = CATEGORIES.find(c => c.id === task.category) || CATEGORIES[5];
-    setCelebration({ player, task, points, catIcon: cat.icon });
+    setCelebration({ player, task, points, catIcon: getTaskIcon(task) });
     setTimeout(() => setCelebration(null), 1800);
 
     setTimeout(() => {
@@ -1123,57 +1143,66 @@ function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress
               </div>
             </div>
 
-            {/* Faixa de ícones - tarefas em linha única horizontal */}
+            {/* PILL LIST — emoji + nome visível, sem ambiguidade */}
             {totalTasks === 0 ? (
               <div className="text-white/30 text-xs italic text-center py-2">Nenhuma tarefa atribuída</div>
             ) : (
-              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-custom pb-1">
+              <div className="flex flex-col gap-1.5">
                 {playerTasks.map(task => {
                   const cat = CATEGORIES.find(c => c.id === task.category) || CATEGORIES[5];
-                  const done = isTaskDone(task.id, player.id);           // meta total atingida
-                  const doneToday = isTaskDoneToday(task.id, player.id); // marcou hoje (limite diário)
-                  const canMark = !doneToday && !done;                   // pode marcar agora
+                  const taskIcon = getTaskIcon(task);
+                  const done = isTaskDone(task.id, player.id);
+                  const doneToday = isTaskDoneToday(task.id, player.id);
                   const progress = getTaskProgress(task.id, player.id);
                   const pct = Math.min(100, (progress.current / progress.goal) * 100);
-                  // Cor do ícone: verde do player se marcou hoje, cor da categoria se não
-                  const markedColor = doneToday ? player.color : cat.color;
 
                   return (
                     <button
                       key={task.id}
                       onClick={() => {
-                        if (doneToday || done) {
-                          onTaskAction(task.id, player.id); // já marcou hoje → abre modal
-                        } else {
-                          onComplete(task.id, player.id);   // não marcou → marca
-                        }
+                        if (doneToday || done) onTaskAction(task.id, player.id);
+                        else onComplete(task.id, player.id);
                       }}
                       onContextMenu={e => { e.preventDefault(); onTaskAction(task.id, player.id); }}
-                      title={doneToday ? `${task.name} · Toque para opções` : `${task.name} · ${progress.current}/${progress.goal}`}
-                      className="task-icon-btn relative flex items-center justify-center rounded-xl flex-shrink-0 cursor-pointer"
+                      className="task-icon-btn relative w-full flex items-center gap-2.5 px-3 py-2 rounded-xl cursor-pointer text-left"
                       style={{
-                        width: '44px',
-                        height: '44px',
-                        background: doneToday ? `${player.color}30` : `linear-gradient(135deg, ${cat.color}30, ${cat.color}10)`,
-                        border: `1.5px solid ${doneToday ? player.color + 'cc' : cat.color + '99'}`,
-                        boxShadow: doneToday ? `0 0 10px ${player.color}60` : `0 0 6px ${cat.color}30`,
+                        background: doneToday
+                          ? `linear-gradient(90deg, ${player.color}25, ${player.color}08)`
+                          : `linear-gradient(90deg, ${cat.color}15, transparent)`,
+                        border: `1.5px solid ${doneToday ? player.color + 'aa' : cat.color + '50'}`,
+                        boxShadow: doneToday ? `0 0 8px ${player.color}30` : 'none',
                       }}
                     >
-                      <div className="text-xl">{cat.icon}</div>
-                      {doneToday && (
-                        <div className="absolute -top-0.5 -right-0.5 rounded-full p-0.5" style={{ background: player.color }}>
-                          <Check size={8} className="text-black" strokeWidth={3} />
+                      {/* Emoji da tarefa */}
+                      <span className="text-xl flex-shrink-0 leading-none"
+                        style={{ filter: doneToday ? `drop-shadow(0 0 6px ${player.color})` : 'none' }}>
+                        {taskIcon}
+                      </span>
+
+                      {/* Nome */}
+                      <span className="flex-1 min-w-0 text-xs font-bold truncate"
+                        style={{ color: doneToday ? player.color : 'rgba(255,255,255,0.85)' }}>
+                        {task.name}
+                      </span>
+
+                      {/* Progresso ou check */}
+                      {doneToday ? (
+                        <div className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ background: player.color }}>
+                          <Check size={10} className="text-black" strokeWidth={3} />
                         </div>
-                      )}
+                      ) : progress.goal > 1 ? (
+                        <span className="flex-shrink-0 text-[10px] font-bold"
+                          style={{ color: cat.color }}>
+                          {progress.current}/{progress.goal}
+                        </span>
+                      ) : null}
+
+                      {/* Barra de progresso para meta > 1 */}
                       {!doneToday && progress.goal > 1 && (
-                        <>
-                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/40 rounded-b-xl overflow-hidden">
-                            <div className="h-full" style={{ width: `${pct}%`, background: cat.color }} />
-                          </div>
-                          <div className="absolute -top-1 -right-1 bg-black text-white text-[8px] font-bold rounded-full px-1 border" style={{ borderColor: cat.color }}>
-                            {progress.current}
-                          </div>
-                        </>
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-xl overflow-hidden bg-black/20">
+                          <div className="h-full" style={{ width: `${pct}%`, background: cat.color }} />
+                        </div>
                       )}
                     </button>
                   );
@@ -1259,64 +1288,109 @@ function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgre
         </div>
       )}
 
-      <div className="space-y-3 sm:space-y-4 flex-1">
+      {/* TASK LIST — linhas claras com emoji + nome + pts + progresso */}
+      <div className="space-y-2 flex-1">
         {totalTasks === 0 && (
           <div className="text-center py-8 text-white/40 text-sm italic">Nenhuma tarefa atribuída</div>
         )}
         {Object.entries(byFreq).map(([freqId, list]) => {
           if (list.length === 0) return null;
           const freq = FREQUENCIES.find(f => f.id === freqId);
+          const inactive = list.filter(t => todayInactive.has(t.id));
+          const active = list.filter(t => !todayInactive.has(t.id));
           return (
             <div key={freqId}>
-              <div className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">{freq.name}</div>
-              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                {list.map(task => {
+              {/* Label da frequência */}
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="text-[9px] uppercase tracking-widest text-white/30 font-bold">{freq.name}</div>
+                <div className="flex-1 h-px bg-white/5" />
+              </div>
+              <div className="space-y-1.5">
+                {active.map(task => {
                   const cat = CATEGORIES.find(c => c.id === task.category) || CATEGORIES[5];
+                  const taskIcon = getTaskIcon(task);
                   const done = isTaskDone(task.id, player.id);
                   const doneToday = isTaskDoneToday(task.id, player.id);
                   const progress = getTaskProgress(task.id, player.id);
                   const pct = Math.min(100, (progress.current / progress.goal) * 100);
-                  const points = getPointsForPlayer(task, player.id);
+                  const pts = getPointsForPlayer(task, player.id);
 
                   return (
                     <button
                       key={task.id}
                       onClick={() => {
-                        if (todayInactive.has(task.id)) return;
                         if (doneToday || done) onTaskAction(task.id, player.id);
                         else onComplete(task.id, player.id);
                       }}
-                      onContextMenu={e => { e.preventDefault(); if (!todayInactive.has(task.id)) onTaskAction(task.id, player.id); }}
-                      disabled={todayInactive.has(task.id)}
-                      title={todayInactive.has(task.id) ? `${task.name} · Nao vale hoje` : (doneToday || done) ? `${task.name} · Toque para opcoes` : `${task.name} · ${points} pts · ${progress.current}/${progress.goal}`}
-                      className={`task-icon-btn relative flex flex-col items-center justify-center rounded-xl sm:rounded-2xl p-1.5 sm:p-2 ${todayInactive.has(task.id) ? 'opacity-25 cursor-not-allowed' : 'cursor-pointer'}`}
+                      onContextMenu={e => { e.preventDefault(); onTaskAction(task.id, player.id); }}
+                      className="task-icon-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer relative overflow-hidden"
                       style={{
-                        aspectRatio: '1 / 1',
-                        background: doneToday ? `${player.color}25` : done ? '#1a1a2e' : `linear-gradient(135deg, ${cat.color}25, ${cat.color}08)`,
-                        border: `2px solid ${doneToday ? player.color + 'cc' : done ? '#2a2a3e' : cat.color + 'aa'}`,
-                        boxShadow: doneToday ? `0 0 12px ${player.color}50` : done ? 'none' : `0 0 12px ${cat.color}40`,
+                        background: doneToday
+                          ? `linear-gradient(90deg, ${player.color}20, ${player.color}08)`
+                          : `linear-gradient(90deg, ${cat.color}12, transparent)`,
+                        border: `1.5px solid ${doneToday ? player.color + '80' : cat.color + '40'}`,
                       }}
                     >
-                      <div className="text-xl sm:text-2xl leading-none">{cat.icon}</div>
-                      <div className="text-[8px] sm:text-[9px] text-white/70 mt-0.5 sm:mt-1 font-bold leading-tight text-center w-full px-0.5" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {task.name}
-                      </div>
-                      {doneToday && (
-                        <div className="absolute -top-1 -right-1 rounded-full p-0.5" style={{ background: player.color }}>
-                          <Check size={10} className="text-black" strokeWidth={3} />
+                      {/* Emoji grande */}
+                      <span className="text-2xl flex-shrink-0 leading-none"
+                        style={{ filter: doneToday ? `drop-shadow(0 0 8px ${player.color})` : 'none' }}>
+                        {taskIcon}
+                      </span>
+
+                      {/* Nome + pontos */}
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="text-sm font-bold truncate"
+                          style={{ color: doneToday ? player.color : 'rgba(255,255,255,0.9)' }}>
+                          {task.name}
                         </div>
-                      )}
-                      {!doneToday && progress.goal > 1 && (
-                        <>
-                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40 rounded-b-xl sm:rounded-b-2xl overflow-hidden">
-                            <div className="h-full" style={{ width: `${pct}%`, background: cat.color }} />
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] font-bold" style={{ color: cat.color }}>{cat.name}</span>
+                          <span className="text-[10px] text-white/30">·</span>
+                          <span className="text-[10px] text-yellow-300 font-bold">+{pts} pts</span>
+                          {progress.goal > 1 && (
+                            <>
+                              <span className="text-[10px] text-white/30">·</span>
+                              <span className="text-[10px] text-white/50">{progress.current}/{progress.goal}</span>
+                            </>
+                          )}
+                        </div>
+                        {/* Barra de progresso fina */}
+                        {progress.goal > 1 && (
+                          <div className="h-0.5 rounded-full bg-white/10 mt-1.5 overflow-hidden">
+                            <div className="h-full rounded-full transition-all"
+                              style={{ width: `${pct}%`, background: doneToday ? player.color : cat.color }} />
                           </div>
-                          <div className="absolute -top-1 -right-1 bg-black text-white text-[8px] sm:text-[9px] font-bold rounded-full px-1 sm:px-1.5 py-0.5 border" style={{ borderColor: cat.color }}>
-                            {progress.current}/{progress.goal}
+                        )}
+                      </div>
+
+                      {/* Estado: check ou seta */}
+                      <div className="flex-shrink-0">
+                        {doneToday ? (
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center"
+                            style={{ background: player.color, boxShadow: `0 0 10px ${player.color}80` }}>
+                            <Check size={14} className="text-black" strokeWidth={3} />
                           </div>
-                        </>
-                      )}
+                        ) : (
+                          <div className="w-7 h-7 rounded-full border-2 flex items-center justify-center"
+                            style={{ borderColor: cat.color + '60' }}>
+                            <span className="text-[10px]" style={{ color: cat.color }}>+</span>
+                          </div>
+                        )}
+                      </div>
                     </button>
+                  );
+                })}
+                {/* Tarefas inativas (cinza, menor) */}
+                {inactive.map(task => {
+                  const taskIcon = getTaskIcon(task);
+                  return (
+                    <div key={task.id}
+                      className="flex items-center gap-3 px-3 py-2 rounded-xl opacity-25"
+                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span className="text-xl flex-shrink-0">{taskIcon}</span>
+                      <span className="text-xs text-white/60 truncate flex-1">{task.name}</span>
+                      <span className="text-[10px] text-white/30 flex-shrink-0">Não é hoje</span>
+                    </div>
                   );
                 })}
               </div>
@@ -1488,7 +1562,7 @@ function MonthView({ players, tasks, completions }) {
                       const cat = task ? CATEGORIES.find(cat => cat.id === task.category) : null;
                       return (
                         <span key={idx} className="text-[9px] sm:text-xs md:text-sm leading-none" title={task?.name}>
-                          {cat?.icon || '⭐'}
+                          {task ? getTaskIcon(task) : '⭐'}
                         </span>
                       );
                     })}
@@ -1895,7 +1969,7 @@ function ManageView({ tasks, players, onAdd, onEdit, onRemove, getGoalForPlayer,
             return (
               <div key={task.id} className="bg-black/50 backdrop-blur-sm border-2 rounded-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4"
                 style={{ borderColor: cat.color + '40' }}>
-                <div className="text-2xl sm:text-3xl md:text-4xl flex-shrink-0">{cat.icon}</div>
+                <div className="text-2xl sm:text-3xl md:text-4xl flex-shrink-0">{getTaskIcon(task)}</div>
                 <div className="flex-1 min-w-0">
                   <div className="bungee text-sm sm:text-base md:text-lg text-white truncate">{task.name}</div>
                   <div className="text-[10px] sm:text-xs text-white/50 mt-1 flex flex-wrap gap-x-2">
@@ -1957,6 +2031,8 @@ function TaskModal({ task, players, onClose, onSave }) {
   const [individualGoals, setIndividualGoals] = useState(task && task.perPlayerGoals && Object.keys(task.perPlayerGoals).length > 0);
   const [perPlayerGoals, setPerPlayerGoals] = useState(task?.perPlayerGoals || {});
   const [perPlayerPoints, setPerPlayerPoints] = useState(task?.perPlayerPoints || {});
+  const [taskEmoji, setTaskEmoji] = useState(task?.emoji || '');
+  const [emojiGroup, setEmojiGroup] = useState(Object.keys(TASK_EMOJIS)[0]);
 
   const toggleAssigned = (id) => {
     setAssignedIds(assignedIds.includes(id) ? assignedIds.filter(i => i !== id) : [...assignedIds, id]);
@@ -1981,6 +2057,7 @@ function TaskModal({ task, players, onClose, onSave }) {
     onSave({
       id: task?.id,
       name: name.trim(),
+      emoji: taskEmoji || null,
       category, frequency,
       goal: Math.max(1, Number(goal) || 1),
       points: Math.max(1, Number(points) || 1),
@@ -2003,6 +2080,25 @@ function TaskModal({ task, players, onClose, onSave }) {
         </div>
 
         <div className="space-y-4">
+          {/* Preview do emoji + nome */}
+          <div className="flex items-center gap-3 bg-white/5 rounded-2xl p-3 border border-white/10">
+            <div className="text-4xl flex-shrink-0"
+              style={{ filter: taskEmoji ? 'drop-shadow(0 0 8px rgba(255,255,255,0.3))' : 'none' }}>
+              {taskEmoji || (CATEGORIES.find(c => c.id === category)?.icon || '⭐')}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-white font-bold text-sm truncate">{name || 'Nome da tarefa'}</div>
+              <div className="text-[10px] text-white/40 mt-0.5">
+                {taskEmoji ? 'Emoji personalizado' : 'Usando ícone da categoria'}
+                {taskEmoji && (
+                  <button onClick={() => setTaskEmoji('')} className="ml-2 text-red-400 hover:text-red-300 underline">
+                    remover
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           <Field label="Nome da tarefa">
             <input type="text" value={name} onChange={e => setName(e.target.value)}
               placeholder="Ex: Escovar os dentes"
@@ -2020,6 +2116,29 @@ function TaskModal({ task, players, onClose, onSave }) {
                   <div className="text-[10px] sm:text-xs text-white/70 mt-1">{c.name}</div>
                 </button>
               ))}
+            </div>
+          </Field>
+
+          <Field label="Emoji da tarefa (opcional)">
+            {/* Seletor de grupo */}
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-custom pb-1 mb-2">
+              {Object.keys(TASK_EMOJIS).map(group => (
+                <button key={group} onClick={() => setEmojiGroup(group)}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[10px] whitespace-nowrap flex-shrink-0 transition-all ${emojiGroup === group ? 'bg-pink-500 text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
+                  {group.split(' ')[0]}
+                </button>
+              ))}
+            </div>
+            {/* Grid de emojis */}
+            <div className="bg-black/40 rounded-xl p-2 max-h-32 overflow-y-auto scrollbar-custom">
+              <div className="grid grid-cols-10 sm:grid-cols-12 gap-1">
+                {TASK_EMOJIS[emojiGroup]?.map(em => (
+                  <button key={em} onClick={() => setTaskEmoji(taskEmoji === em ? '' : em)}
+                    className={`text-xl p-1.5 rounded-lg transition-all hover:scale-110 ${taskEmoji === em ? 'bg-pink-500/30 ring-2 ring-pink-400 scale-110' : 'hover:bg-white/10'}`}>
+                    {em}
+                  </button>
+                ))}
+              </div>
             </div>
           </Field>
 
@@ -2881,7 +3000,7 @@ function TaskActionModal({ taskId, playerId, tasks, players, completions, getGoa
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
-          <div className="text-4xl" style={{ filter: `drop-shadow(0 0 10px ${cat.color})` }}>{cat.icon}</div>
+          <div className="text-4xl" style={{ filter: `drop-shadow(0 0 10px ${cat.color})` }}>{getTaskIcon(task)}</div>
           <div className="flex-1 min-w-0">
             <div className="bungee text-base text-white truncate">{task.name}</div>
             <div className="flex items-center gap-2 mt-0.5">
