@@ -1,0 +1,2962 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0A0612" />
+  <title>HabitClan</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel para JSX no browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import { getDatabase, ref, onValue, set, get } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+    // ================================================================
+    // 🔧 CONFIGURAÇÃO DO FIREBASE
+    // Substitua os valores abaixo com os dados do SEU projeto Firebase
+    // Instruções em: LEIA-ME.txt
+    // ================================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyDmOwB_QTt7yMPIATGBDWZm_PimB_OK5kE",
+      authDomain: "habitclan-48f90.firebaseapp.com",
+      databaseURL: "https://habitclan-48f90-default-rtdb.firebaseio.com",
+      projectId: "habitclan-48f90",
+      storageBucket: "habitclan-48f90.firebasestorage.app",
+      messagingSenderId: "726217058037",
+      appId: "1:726217058037:web:6b46bbf2d2bf64b46987bc"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Expor funções para o app React acessar
+    window._firebase = {
+      async read(path) {
+        const snap = await get(ref(db, path));
+        return snap.exists() ? snap.val() : null;
+      },
+      async write(path, value) {
+        await set(ref(db, path), value);
+      },
+      subscribe(path, callback) {
+        const r = ref(db, path);
+        onValue(r, snap => callback(snap.exists() ? snap.val() : null));
+        return () => {}; // cleanup placeholder
+      }
+    };
+
+    window._firebaseReady = true;
+    window.dispatchEvent(new Event('firebaseReady'));
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0A0612; -webkit-font-smoothing: antialiased; }
+    #root { min-height: 100vh; }
+    /* Prevent iOS bounce */
+    html, body { overflow-x: hidden; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // ================================================================
+    // 🔒 SENHA DE ACESSO FAMILIAR
+    // Troque para a senha que quiser usar
+    // ================================================================
+    const FAMILY_PASSWORD = "Hecr1202";
+
+    // ================================================================
+    // Ícones do Lucide (carregados via CDN)
+    // ================================================================
+    const LucideIcon = ({ name, size = 16, className = '', style = {} }) => {
+      const ref = useRef(null);
+      useEffect(() => {
+        if (ref.current && window.lucide) {
+          ref.current.innerHTML = '';
+          const icon = window.lucide.createElement(window.lucide[name] || window.lucide.Star);
+          if (icon) {
+            icon.setAttribute('width', size);
+            icon.setAttribute('height', size);
+            if (className) icon.setAttribute('class', className);
+            Object.entries(style).forEach(([k, v]) => icon.style[k] = v);
+            ref.current.appendChild(icon);
+          }
+        }
+      }, [name, size, className]);
+      return React.createElement('span', { ref, style: { display: 'inline-flex', alignItems: 'center', ...style } });
+    };
+
+    // Aliases para compatibilidade com o código original
+    const Plus = (p) => React.createElement(LucideIcon, { name: 'Plus', ...p });
+    const Trophy = (p) => React.createElement(LucideIcon, { name: 'Trophy', ...p });
+    const Flame = (p) => React.createElement(LucideIcon, { name: 'Flame', ...p });
+    const Home = (p) => React.createElement(LucideIcon, { name: 'House', ...p });
+    const Calendar = (p) => React.createElement(LucideIcon, { name: 'Calendar', ...p });
+    const BarChart3 = (p) => React.createElement(LucideIcon, { name: 'BarChart3', ...p });
+    const Trash2 = (p) => React.createElement(LucideIcon, { name: 'Trash2', ...p });
+    const Check = (p) => React.createElement(LucideIcon, { name: 'Check', ...p });
+    const X = (p) => React.createElement(LucideIcon, { name: 'X', ...p });
+    const Settings = (p) => React.createElement(LucideIcon, { name: 'Settings', ...p });
+    const Edit2 = (p) => React.createElement(LucideIcon, { name: 'Pencil', ...p });
+    const ChevronLeft = (p) => React.createElement(LucideIcon, { name: 'ChevronLeft', ...p });
+    const ChevronRight = (p) => React.createElement(LucideIcon, { name: 'ChevronRight', ...p });
+    const UserPlus = (p) => React.createElement(LucideIcon, { name: 'UserPlus', ...p });
+    const Target = (p) => React.createElement(LucideIcon, { name: 'Target', ...p });
+    const Gift = (p) => React.createElement(LucideIcon, { name: 'Gift', ...p });
+    const Sparkles = (p) => React.createElement(LucideIcon, { name: 'Sparkles', ...p });
+    const LayoutGrid = (p) => React.createElement(LucideIcon, { name: 'LayoutGrid', ...p });
+    const List = (p) => React.createElement(LucideIcon, { name: 'List', ...p });
+    const Wallet = (p) => React.createElement(LucideIcon, { name: 'Wallet', ...p });
+    const TrendingUp = (p) => React.createElement(LucideIcon, { name: 'TrendingUp', ...p });
+    const BadgeCheck = (p) => React.createElement(LucideIcon, { name: 'BadgeCheck', ...p });
+    const Clock = (p) => React.createElement(LucideIcon, { name: 'Clock', ...p });
+    const Coins = (p) => React.createElement(LucideIcon, { name: 'Coins', ...p });
+
+    // ================================================================
+    // FIREBASE STORAGE ADAPTER
+    // Substitui window.storage do Claude pelo Firebase
+    // ================================================================
+    const DB_ROOT = 'habitclan'; // pasta raiz no banco
+
+    const firebaseStorage = {
+      async get(key) {
+        if (!window._firebase) return null;
+        try {
+          const val = await window._firebase.read(`${DB_ROOT}/${key}`);
+          return val !== null ? { value: typeof val === 'string' ? val : JSON.stringify(val) } : null;
+        } catch (e) { return null; }
+      },
+      async set(key, value) {
+        if (!window._firebase) return null;
+        try {
+          // Firebase não aceita strings com JSON — guardamos como objeto quando possível
+          let toStore = value;
+          try { toStore = JSON.parse(value); } catch (e) { /* mantém string */ }
+          await window._firebase.write(`${DB_ROOT}/${key}`, toStore);
+          return { value };
+        } catch (e) { return null; }
+      }
+    };
+
+    // Tela de Login
+    function LoginScreen({ onLogin }) {
+      const [password, setPassword] = useState('');
+      const [error, setError] = useState(false);
+      const [shake, setShake] = useState(false);
+
+      const submit = () => {
+        if (password === FAMILY_PASSWORD) {
+          localStorage.setItem('hc_auth', btoa(FAMILY_PASSWORD));
+          onLogin();
+        } else {
+          setError(true);
+          setShake(true);
+          setTimeout(() => setShake(false), 600);
+        }
+      };
+
+      return (
+        <div style={{ minHeight: '100vh', background: '#0A0612', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+          <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;600;700&display=swap');
+            @keyframes gridShift { 0% { background-position: 0 0; } 100% { background-position: 60px 60px; } }
+            @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+            @keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+            .grid-bg { background-image: linear-gradient(rgba(255,61,154,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.08) 1px,transparent 1px); background-size:60px 60px; animation:gridShift 20s linear infinite; position:fixed;inset:0;pointer-events:none; }
+            .bungee { font-family:'Bungee',system-ui,sans-serif; }
+            .neon { text-shadow:0 0 10px currentColor,0 0 20px currentColor,0 0 40px currentColor; }
+            .login-card { animation: fadeIn 0.5s ease; }
+            .shake { animation: shake 0.4s ease; }
+          `}</style>
+          <div className="grid-bg" />
+          <div style={{ position:'relative',zIndex:1,width:'100%',maxWidth:'360px' }} className="login-card">
+            <div style={{ textAlign:'center',marginBottom:'32px' }}>
+              <h1 className="bungee neon" style={{ fontSize:'clamp(2.5rem,10vw,4rem)', color:'#FFD600', margin:0, lineHeight:1 }}>
+                HABIT<span style={{ color:'#FF3D9A' }}>CLAN</span>
+              </h1>
+              <p style={{ color:'rgba(255,255,255,0.5)', fontSize:'12px', marginTop:'8px', letterSpacing:'0.15em', textTransform:'uppercase' }}>
+                Área da Família
+              </p>
+            </div>
+
+            <div style={{ background:'rgba(0,0,0,0.6)', border:'2px solid rgba(255,255,255,0.1)', borderRadius:'24px', padding:'32px', backdropFilter:'blur(20px)' }}
+              className={shake ? 'shake' : ''}>
+              <div style={{ textAlign:'center', marginBottom:'24px' }}>
+                <div style={{ fontSize:'48px', marginBottom:'8px' }}>🔐</div>
+                <p style={{ color:'rgba(255,255,255,0.7)', fontSize:'14px', margin:0 }}>Digite a senha da família para entrar</p>
+              </div>
+
+              <input
+                type="password"
+                value={password}
+                onChange={e => { setPassword(e.target.value); setError(false); }}
+                onKeyDown={e => e.key === 'Enter' && submit()}
+                placeholder="Senha da família"
+                autoFocus
+                style={{
+                  width:'100%', padding:'14px 16px', borderRadius:'14px',
+                  background:'rgba(255,255,255,0.05)',
+                  border:`2px solid ${error ? '#FF5252' : 'rgba(255,255,255,0.1)'}`,
+                  color:'white', fontSize:'16px', fontFamily:'inherit',
+                  outline:'none', marginBottom:'8px', boxSizing:'border-box'
+                }}
+              />
+              {error && <p style={{ color:'#FF5252', fontSize:'12px', margin:'0 0 12px', textAlign:'center' }}>Senha incorreta. Tente novamente.</p>}
+
+              <button
+                onClick={submit}
+                style={{
+                  width:'100%', padding:'14px', borderRadius:'14px', border:'none',
+                  background:'linear-gradient(135deg,#FFD600,#FF3D9A)',
+                  color:'black', fontWeight:'800', fontSize:'15px',
+                  cursor:'pointer', fontFamily:"'Bungee',system-ui",
+                  letterSpacing:'0.05em', marginTop: error ? 0 : '12px',
+                  boxShadow:'0 0 20px rgba(255,61,154,0.5)'
+                }}>
+                ENTRAR
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Tela de carregamento
+    function LoadingScreen() {
+      return (
+        <div style={{ minHeight:'100vh', background:'#0A0612', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px' }}>
+          <style>{`.bungee{font-family:'Bungee',system-ui,sans-serif;} .neon{text-shadow:0 0 10px currentColor,0 0 20px currentColor;} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          <h1 className="bungee neon" style={{ fontSize:'2.5rem', color:'#FFD600', margin:0 }}>HABIT<span style={{ color:'#FF3D9A' }}>CLAN</span></h1>
+          <div style={{ width:'36px', height:'36px', border:'3px solid rgba(255,255,255,0.1)', borderTop:'3px solid #FFD600', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+          <p style={{ color:'rgba(255,255,255,0.4)', fontSize:'12px', letterSpacing:'0.1em' }}>CARREGANDO...</p>
+        </div>
+      );
+    }
+
+    // Wrapper que gerencia auth + Firebase ready
+    function AppWrapper() {
+      const [authed, setAuthed] = useState(false);
+      const [fbReady, setFbReady] = useState(false);
+
+      useEffect(() => {
+        // Checa se já autenticou antes (sessão salva)
+        const saved = localStorage.getItem('hc_auth');
+        if (saved && atob(saved) === FAMILY_PASSWORD) setAuthed(true);
+
+        // Espera Firebase ficar pronto
+        if (window._firebaseReady) {
+          setFbReady(true);
+        } else {
+          const handler = () => setFbReady(true);
+          window.addEventListener('firebaseReady', handler);
+          return () => window.removeEventListener('firebaseReady', handler);
+        }
+      }, []);
+
+      if (!authed) return React.createElement(LoginScreen, { onLogin: () => setAuthed(true) });
+      if (!fbReady) return React.createElement(LoadingScreen);
+      return React.createElement(HabitClan);
+    }
+
+    // ================================================================
+    // PATCH: substitui window.storage pelo Firebase adapter
+    // O código do HabitClan usa window.storage — aqui fazemos o bridge
+    // ================================================================
+    window.storage = firebaseStorage;
+
+
+// ============== NOME DO APP (troque aqui se preferir outro) ==============
+const APP_NAME = { first: 'HABIT', second: 'CLAN' };
+// Outras opções: { first: 'TRIBE', second: 'TRACK' }, { first: 'FAM', second: 'TRACK' }, { first: 'TASK', second: 'TRIBE' }
+
+// ============== SOUND ENGINE ==============
+const playSound = (type) => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    if (type === 'complete') {
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+        gain.gain.setValueAtTime(0, now + i * 0.08);
+        gain.gain.linearRampToValueAtTime(0.15, now + i * 0.08 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.15);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(now + i * 0.08); osc.stop(now + i * 0.08 + 0.15);
+      });
+    } else if (type === 'achievement') {
+      const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + i * 0.1);
+        gain.gain.setValueAtTime(0, now + i * 0.1);
+        gain.gain.linearRampToValueAtTime(0.2, now + i * 0.1 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(now + i * 0.1); osc.stop(now + i * 0.1 + 0.3);
+      });
+    } else if (type === 'click') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, now);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(now); osc.stop(now + 0.05);
+    }
+  } catch (e) {}
+};
+
+// ============== DADOS ==============
+const DEFAULT_PLAYERS = [
+  { id: 'p1', name: 'Papai', emoji: '🦾', color: '#00E5FF' },
+  { id: 'p2', name: 'Mamãe', emoji: '💫', color: '#FF3D9A' },
+  { id: 'p3', name: 'Filha 1', emoji: '🦄', color: '#FFD600' },
+  { id: 'p4', name: 'Filha 2', emoji: '🌈', color: '#76FF03' },
+];
+
+const CATEGORIES = [
+  { id: 'study', name: 'Estudos', icon: '📚', color: '#00E5FF' },
+  { id: 'home', name: 'Casa', icon: '🏠', color: '#FF3D9A' },
+  { id: 'health', name: 'Saúde', icon: '💪', color: '#76FF03' },
+  { id: 'hygiene', name: 'Higiene', icon: '🧼', color: '#FFD600' },
+  { id: 'creative', name: 'Criativo', icon: '🎨', color: '#B388FF' },
+  { id: 'other', name: 'Outros', icon: '⭐', color: '#FF9100' },
+];
+
+const FREQUENCIES = [
+  { id: 'daily', name: 'Diária', label: 'por dia' },
+  { id: 'weekly', name: 'Semanal', label: 'por semana' },
+  { id: 'monthly', name: 'Mensal', label: 'por mês' },
+];
+
+const EMOJI_OPTIONS = ['🦾', '💫', '🦄', '🌈', '🚀', '⚡', '🔥', '🌟', '🎮', '🎯', '🦸', '🧙', '🐉', '🦊', '🐼', '🐨', '🦁', '🐯', '🦖', '👑', '🎨', '🎸', '⚽', '🏀', '🧚', '🧜', '🌸', '🍀', '🌺', '🎪'];
+const COLOR_OPTIONS = ['#00E5FF', '#FF3D9A', '#FFD600', '#76FF03', '#B388FF', '#FF9100', '#18FFFF', '#F50057', '#FF5252', '#40C4FF'];
+
+// ============== UTILS ==============
+const todayKey = () => new Date().toISOString().split('T')[0];
+const weekKey = (d = new Date()) => {
+  const year = d.getFullYear();
+  const start = new Date(year, 0, 1);
+  const week = Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
+  return `${year}-W${week}`;
+};
+const monthKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+const blendColors = (colors) => {
+  if (colors.length === 0) return null;
+  if (colors.length === 1) return colors[0];
+  const count = {};
+  colors.forEach(c => count[c] = (count[c] || 0) + 1);
+  return Object.entries(count).sort((a, b) => b[1] - a[1])[0][0];
+};
+
+// ============== APP ==============
+function HabitClan() {
+  const [view, setView] = useState('home');
+  const [homeMode, setHomeMode] = useState('compact'); // 'compact' | 'detailed'
+  const [players, setPlayers] = useState(DEFAULT_PLAYERS);
+  const [tasks, setTasks] = useState([]);
+  const [completions, setCompletions] = useState([]);
+  const [rewards, setRewards] = useState([]);
+  const [allowances, setAllowances] = useState([]);        // config por jogador
+  const [allowancePayments, setAllowancePayments] = useState([]); // pagamentos registrados
+  const [loaded, setLoaded] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showPlayerModal, setShowPlayerModal] = useState(null);
+  const [showRewardModal, setShowRewardModal] = useState(null);
+  const [showAllowanceModal, setShowAllowanceModal] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(null);
+  const [celebration, setCelebration] = useState(null);
+  const [newBadge, setNewBadge] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const p = await window.storage.get('players', true);
+        if (p) setPlayers(JSON.parse(p.value));
+      } catch (e) {}
+      try {
+        const t = await window.storage.get('tasks', true);
+        if (t) {
+          const parsed = JSON.parse(t.value);
+          setTasks(parsed.map(task => ({
+            ...task,
+            assignedTo: task.assignedTo || 'all',
+            perPlayerGoals: task.perPlayerGoals || {},
+            perPlayerPoints: task.perPlayerPoints || {},
+          })));
+        }
+      } catch (e) {}
+      try {
+        const c = await window.storage.get('completions', true);
+        if (c) setCompletions(JSON.parse(c.value));
+      } catch (e) {}
+      try {
+        const r = await window.storage.get('rewards', true);
+        if (r) setRewards(JSON.parse(r.value));
+      } catch (e) {}
+      try {
+        const al = await window.storage.get('allowances', true);
+        if (al) setAllowances(JSON.parse(al.value));
+      } catch (e) {}
+      try {
+        const ap = await window.storage.get('allowancePayments', true);
+        if (ap) setAllowancePayments(JSON.parse(ap.value));
+      } catch (e) {}
+      try {
+        const m = await window.storage.get('homeMode', true);
+        if (m) setHomeMode(m.value);
+      } catch (e) {}
+      setLoaded(true);
+    })();
+  }, []);
+
+  useEffect(() => { if (loaded) window.storage.set('players', JSON.stringify(players), true).catch(() => {}); }, [players, loaded]);
+  useEffect(() => { if (loaded) window.storage.set('tasks', JSON.stringify(tasks), true).catch(() => {}); }, [tasks, loaded]);
+  useEffect(() => { if (loaded) window.storage.set('completions', JSON.stringify(completions), true).catch(() => {}); }, [completions, loaded]);
+  useEffect(() => { if (loaded) window.storage.set('rewards', JSON.stringify(rewards), true).catch(() => {}); }, [rewards, loaded]);
+  useEffect(() => { if (loaded) window.storage.set('allowances', JSON.stringify(allowances), true).catch(() => {}); }, [allowances, loaded]);
+  useEffect(() => { if (loaded) window.storage.set('allowancePayments', JSON.stringify(allowancePayments), true).catch(() => {}); }, [allowancePayments, loaded]);
+  useEffect(() => { if (loaded) window.storage.set('homeMode', homeMode, true).catch(() => {}); }, [homeMode, loaded]);
+
+  const getGoalForPlayer = (task, playerId) => {
+    if (task.perPlayerGoals && task.perPlayerGoals[playerId] != null) return task.perPlayerGoals[playerId];
+    return task.goal || 1;
+  };
+  const getPointsForPlayer = (task, playerId) => {
+    if (task.perPlayerPoints && task.perPlayerPoints[playerId] != null) return task.perPlayerPoints[playerId];
+    return task.points || 10;
+  };
+
+  const getPoints = (playerId, period = 'month') => {
+    return completions.filter(c => {
+      if (c.playerId !== playerId) return false;
+      if (period === 'day') return c.date === todayKey();
+      if (period === 'week') return c.weekKey === weekKey();
+      if (period === 'month') return c.monthKey === monthKey();
+      return true;
+    }).reduce((s, c) => s + c.points, 0);
+  };
+
+  const getStreak = (playerId) => {
+    const dates = new Set(completions.filter(c => c.playerId === playerId).map(c => c.date));
+    let streak = 0;
+    const d = new Date();
+    while (true) {
+      const key = d.toISOString().split('T')[0];
+      if (dates.has(key)) { streak++; d.setDate(d.getDate() - 1); }
+      else { if (streak === 0 && key === todayKey()) { d.setDate(d.getDate() - 1); continue; } break; }
+    }
+    return streak;
+  };
+
+  const computeBadges = (playerId, comps) => {
+    const totalCompletions = comps.filter(c => c.playerId === playerId).length;
+    const totalPoints = comps.filter(c => c.playerId === playerId).reduce((s, c) => s + c.points, 0);
+    const dates = new Set(comps.filter(c => c.playerId === playerId).map(c => c.date));
+    let streak = 0;
+    const d = new Date();
+    while (true) {
+      const key = d.toISOString().split('T')[0];
+      if (dates.has(key)) { streak++; d.setDate(d.getDate() - 1); }
+      else { if (streak === 0 && key === todayKey()) { d.setDate(d.getDate() - 1); continue; } break; }
+    }
+    const badges = [];
+    if (totalCompletions >= 1) badges.push({ id: 'first', name: 'Primeiro Passo', icon: '🌱' });
+    if (totalCompletions >= 10) badges.push({ id: 'ten', name: 'Em Ritmo', icon: '⚡' });
+    if (totalCompletions >= 50) badges.push({ id: 'fifty', name: 'Máquina', icon: '🔥' });
+    if (totalCompletions >= 100) badges.push({ id: 'hundred', name: 'Centurião', icon: '💎' });
+    if (totalPoints >= 500) badges.push({ id: 'p500', name: '500 Pontos', icon: '⭐' });
+    if (totalPoints >= 1000) badges.push({ id: 'p1000', name: 'Mil Pontos', icon: '👑' });
+    if (streak >= 3) badges.push({ id: 's3', name: '3 Dias', icon: '🎯' });
+    if (streak >= 7) badges.push({ id: 's7', name: '1 Semana', icon: '🏆' });
+    if (streak >= 30) badges.push({ id: 's30', name: 'Lendário', icon: '🌟' });
+    return badges;
+  };
+
+  const getBadges = (playerId) => computeBadges(playerId, completions);
+
+  const isTaskAssignedTo = (task, playerId) => {
+    if (!task.assignedTo || task.assignedTo === 'all') return true;
+    if (Array.isArray(task.assignedTo)) return task.assignedTo.includes(playerId);
+    return false;
+  };
+
+  const getTasksForPlayer = (playerId) => tasks.filter(t => isTaskAssignedTo(t, playerId));
+
+  const getTaskProgress = (taskId, playerId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return { current: 0, goal: 1 };
+    const goal = getGoalForPlayer(task, playerId);
+    let done = 0;
+    if (task.frequency === 'daily') {
+      done = completions.filter(c => c.taskId === taskId && c.playerId === playerId && c.date === todayKey()).length;
+    } else if (task.frequency === 'weekly') {
+      done = completions.filter(c => c.taskId === taskId && c.playerId === playerId && c.weekKey === weekKey()).length;
+    } else if (task.frequency === 'monthly') {
+      done = completions.filter(c => c.taskId === taskId && c.playerId === playerId && c.monthKey === monthKey()).length;
+    }
+    return { current: done, goal };
+  };
+
+  const isTaskDone = (taskId, playerId) => {
+    const p = getTaskProgress(taskId, playerId);
+    return p.current >= p.goal;
+  };
+
+  const completeTask = (taskId, playerId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const progress = getTaskProgress(taskId, playerId);
+    if (progress.current >= progress.goal) return;
+
+    const points = getPointsForPlayer(task, playerId);
+    const prevBadges = getBadges(playerId).length;
+    const newCompletion = {
+      id: Date.now() + '-' + Math.random(),
+      taskId, playerId,
+      date: todayKey(),
+      weekKey: weekKey(),
+      monthKey: monthKey(),
+      points,
+      timestamp: Date.now(),
+    };
+    const updated = [...completions, newCompletion];
+    setCompletions(updated);
+    playSound('complete');
+
+    const player = players.find(p => p.id === playerId);
+    const cat = CATEGORIES.find(c => c.id === task.category) || CATEGORIES[5];
+    setCelebration({ player, task, points, catIcon: cat.icon });
+    setTimeout(() => setCelebration(null), 1800);
+
+    setTimeout(() => {
+      const newBadges = computeBadges(playerId, updated);
+      if (newBadges.length > prevBadges) {
+        const latest = newBadges[newBadges.length - 1];
+        setNewBadge({ player, badge: latest });
+        playSound('achievement');
+        setTimeout(() => setNewBadge(null), 2800);
+      }
+    }, 1500);
+  };
+
+  const saveTask = (taskData) => {
+    if (taskData.id) setTasks(tasks.map(t => t.id === taskData.id ? taskData : t));
+    else setTasks([...tasks, { ...taskData, id: 'task-' + Date.now() }]);
+    playSound('click');
+    setShowTaskModal(null);
+  };
+
+  const removeTask = (taskId) => {
+    setTasks(tasks.filter(t => t.id !== taskId));
+    setCompletions(completions.filter(c => c.taskId !== taskId));
+  };
+
+  const savePlayer = (playerData) => {
+    if (playerData.id && players.find(p => p.id === playerData.id)) {
+      setPlayers(players.map(p => p.id === playerData.id ? playerData : p));
+    } else {
+      setPlayers([...players, { ...playerData, id: 'player-' + Date.now() }]);
+    }
+    playSound('click');
+    setShowPlayerModal(null);
+  };
+
+  const removePlayer = (playerId) => {
+    if (players.length <= 1) { alert('Precisa ter pelo menos 1 jogador.'); return; }
+    setPlayers(players.filter(p => p.id !== playerId));
+    setCompletions(completions.filter(c => c.playerId !== playerId));
+    setTasks(tasks.map(t => {
+      const newPerPlayerGoals = { ...t.perPlayerGoals };
+      const newPerPlayerPoints = { ...t.perPlayerPoints };
+      delete newPerPlayerGoals[playerId];
+      delete newPerPlayerPoints[playerId];
+      if (Array.isArray(t.assignedTo)) {
+        const filtered = t.assignedTo.filter(id => id !== playerId);
+        return { ...t, assignedTo: filtered.length > 0 ? filtered : 'all', perPlayerGoals: newPerPlayerGoals, perPlayerPoints: newPerPlayerPoints };
+      }
+      return { ...t, perPlayerGoals: newPerPlayerGoals, perPlayerPoints: newPerPlayerPoints };
+    }));
+  };
+
+  const saveReward = (rewardData) => {
+    if (rewardData.id && rewards.find(r => r.id === rewardData.id)) {
+      setRewards(rewards.map(r => r.id === rewardData.id ? rewardData : r));
+    } else {
+      setRewards([...rewards, { ...rewardData, id: 'reward-' + Date.now() }]);
+    }
+    playSound('click');
+    setShowRewardModal(null);
+  };
+
+  const removeReward = (rewardId) => setRewards(rewards.filter(r => r.id !== rewardId));
+
+  const markRewardAwarded = (rewardId, playerId) => {
+    setRewards(rewards.map(r => r.id === rewardId ? { ...r, awarded: true, awardedTo: playerId, awardedAt: Date.now() } : r));
+    playSound('achievement');
+  };
+
+  // ===== MESADAS =====
+  const getAllowanceConfig = (playerId) => allowances.find(a => a.playerId === playerId) || null;
+
+  const calcBonus = (playerId, mKey) => {
+    const config = getAllowanceConfig(playerId);
+    if (!config || !config.bonusTiers || !config.bonusTiers.length) return 0;
+    const pts = getPointsForMonth(playerId, mKey);
+    let pct = 0;
+    config.bonusTiers.forEach(tier => {
+      if (pts >= tier.minPoints) pct = Math.max(pct, tier.pct);
+    });
+    return Math.round((config.baseAmount || 0) * pct / 100);
+  };
+
+  const getPointsForMonth = (playerId, mKey) => {
+    return completions.filter(c => c.playerId === playerId && c.monthKey === mKey).reduce((s, c) => s + c.points, 0);
+  };
+
+  const calcTotal = (playerId, mKey) => {
+    const config = getAllowanceConfig(playerId);
+    if (!config) return 0;
+    return (config.baseAmount || 0) + calcBonus(playerId, mKey);
+  };
+
+  const getPayment = (playerId, mKey) => allowancePayments.find(p => p.playerId === playerId && p.monthKey === mKey) || null;
+
+  const saveAllowanceConfig = (playerId, config) => {
+    setAllowances(prev => {
+      const exists = prev.find(a => a.playerId === playerId);
+      if (exists) return prev.map(a => a.playerId === playerId ? { ...a, ...config } : a);
+      return [...prev, { playerId, ...config }];
+    });
+    playSound('click');
+    setShowAllowanceModal(null);
+  };
+
+  const removeAllowanceConfig = (playerId) => {
+    setAllowances(prev => prev.filter(a => a.playerId !== playerId));
+    setAllowancePayments(prev => prev.filter(p => p.playerId !== playerId));
+  };
+
+  const savePayment = (paymentData) => {
+    setAllowancePayments(prev => {
+      const exists = prev.find(p => p.id === paymentData.id);
+      if (exists) return prev.map(p => p.id === paymentData.id ? paymentData : p);
+      return [...prev, { ...paymentData, id: 'pay-' + Date.now() }];
+    });
+    playSound('click');
+    setShowPaymentModal(null);
+  };
+
+  const removePayment = (paymentId) => {
+    setAllowancePayments(prev => prev.filter(p => p.id !== paymentId));
+  };
+
+  return (
+    <div className="min-h-screen relative overflow-hidden" style={{ background: '#0A0612', fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+        @keyframes gridShift { 0% { background-position: 0 0; } 100% { background-position: 60px 60px; } }
+        @keyframes celebrate { 0% { transform: scale(0) rotate(-180deg); opacity: 0; } 50% { transform: scale(1.2) rotate(10deg); opacity: 1; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+        @keyframes slideDown { 0% { transform: translate(-50%, -100%); opacity: 0; } 15% { transform: translate(-50%, 0); opacity: 1; } 85% { transform: translate(-50%, 0); opacity: 1; } 100% { transform: translate(-50%, -100%); opacity: 0; } }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+        .grid-bg { background-image: linear-gradient(rgba(255,61,154,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.08) 1px, transparent 1px); background-size: 60px 60px; animation: gridShift 20s linear infinite; }
+        .neon-text { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor; }
+        .bungee { font-family: 'Bungee', system-ui, sans-serif; letter-spacing: 0.02em; }
+        .scrollbar-custom::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-custom::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .scrollbar-custom::-webkit-scrollbar-thumb { background: rgba(255,61,154,0.5); border-radius: 3px; }
+        input, select, textarea { font-family: inherit; }
+        input:focus, select:focus { outline: none; }
+        .task-icon-btn { transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); -webkit-tap-highlight-color: transparent; }
+        .task-icon-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.05); }
+        .task-icon-btn:active:not(:disabled) { transform: scale(0.95); }
+        .task-icon-btn.done { opacity: 0.35; filter: grayscale(0.6); }
+        .float-anim { animation: float 4s ease-in-out infinite; }
+        button { -webkit-tap-highlight-color: transparent; }
+      `}</style>
+
+      <div className="absolute inset-0 grid-bg pointer-events-none" />
+      <div className="absolute top-0 left-0 w-[400px] md:w-[600px] h-[400px] md:h-[600px] rounded-full opacity-30 pointer-events-none" style={{ background: 'radial-gradient(circle, #FF3D9A 0%, transparent 70%)', filter: 'blur(80px)' }} />
+      <div className="absolute bottom-0 right-0 w-[400px] md:w-[600px] h-[400px] md:h-[600px] rounded-full opacity-30 pointer-events-none" style={{ background: 'radial-gradient(circle, #00E5FF 0%, transparent 70%)', filter: 'blur(80px)' }} />
+
+      <div className="relative z-10 max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+        <header className="mb-4 sm:mb-6 md:mb-8 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="min-w-0">
+                <h1 className="bungee text-2xl sm:text-3xl md:text-5xl lg:text-6xl text-white neon-text leading-none" style={{ color: '#FFD600' }}>
+                  {APP_NAME.first}<span style={{ color: '#FF3D9A' }}>{APP_NAME.second}</span>
+                </h1>
+                <p className="text-white/60 text-[10px] sm:text-xs md:text-sm mt-1 tracking-wide uppercase truncate">
+                  {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowSettingsModal(true); playSound('click'); }}
+                className="bg-black/40 hover:bg-black/60 active:bg-black/80 border border-white/10 rounded-xl p-2 sm:p-3 transition-colors flex-shrink-0"
+                title="Configurações"
+              >
+                <Settings size={20} className="text-white/70" />
+              </button>
+            </div>
+
+            {/* TOGGLE DE VISÃO (só visível na home) */}
+            {view === 'home' && tasks.length > 0 && (
+              <div className="flex bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-1 flex-shrink-0">
+                <button
+                  onClick={() => { setHomeMode('compact'); playSound('click'); }}
+                  className={`p-2 rounded-lg transition-all ${homeMode === 'compact' ? 'bg-yellow-400 text-black' : 'text-white/60 hover:text-white'}`}
+                  title="Visão compacta"
+                >
+                  <List size={16} />
+                </button>
+                <button
+                  onClick={() => { setHomeMode('detailed'); playSound('click'); }}
+                  className={`p-2 rounded-lg transition-all ${homeMode === 'detailed' ? 'bg-yellow-400 text-black' : 'text-white/60 hover:text-white'}`}
+                  title="Visão detalhada"
+                >
+                  <LayoutGrid size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <nav className="flex gap-1.5 sm:gap-2 bg-black/40 backdrop-blur-sm p-1.5 sm:p-2 rounded-2xl border border-white/10 overflow-x-auto scrollbar-custom">
+            {[
+              { id: 'home', icon: Home, label: 'Hoje' },
+              { id: 'month', icon: Calendar, label: 'Mês' },
+              { id: 'ranking', icon: Trophy, label: 'Ranking' },
+              { id: 'rewards', icon: Gift, label: 'Prêmios' },
+              { id: 'allowance', icon: Wallet, label: 'Mesadas' },
+              { id: 'manage', icon: Target, label: 'Tarefas' },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => { setView(item.id); playSound('click'); }}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all whitespace-nowrap flex-shrink-0 ${
+                  view === item.id ? 'text-black' : 'text-white/70 hover:text-white hover:bg-white/5'
+                }`}
+                style={view === item.id ? { background: 'linear-gradient(135deg, #FFD600, #FF3D9A)' } : {}}
+              >
+                <item.icon size={14} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </header>
+
+        {view === 'home' && (
+          <>
+            {tasks.length === 0 ? (
+              <EmptyHome />
+            ) : homeMode === 'compact' ? (
+              <CompactHomeView players={players} tasks={tasks} getPoints={getPoints} getStreak={getStreak}
+                getTaskProgress={getTaskProgress} isTaskDone={isTaskDone} onComplete={completeTask}
+                getTasksForPlayer={getTasksForPlayer} />
+            ) : (
+              <DetailedHomeView players={players} tasks={tasks} getPoints={getPoints} getStreak={getStreak}
+                getTaskProgress={getTaskProgress} isTaskDone={isTaskDone} onComplete={completeTask}
+                getBadges={getBadges} getTasksForPlayer={getTasksForPlayer} getPointsForPlayer={getPointsForPlayer} />
+            )}
+          </>
+        )}
+        {view === 'month' && (
+          <MonthView players={players} tasks={tasks} completions={completions} />
+        )}
+        {view === 'ranking' && (
+          <RankingView players={players} completions={completions} getStreak={getStreak}
+            getBadges={getBadges} getPoints={getPoints} />
+        )}
+        {view === 'rewards' && (
+          <RewardsView players={players} rewards={rewards} getPoints={getPoints}
+            onAdd={() => setShowRewardModal('new')} onEdit={(r) => setShowRewardModal(r)}
+            onRemove={removeReward} onMarkAwarded={markRewardAwarded} />
+        )}
+        {view === 'manage' && (
+          <ManageView tasks={tasks} players={players} onAdd={() => setShowTaskModal('new')}
+            onEdit={(task) => setShowTaskModal(task)} onRemove={removeTask}
+            getGoalForPlayer={getGoalForPlayer} getPointsForPlayer={getPointsForPlayer} />
+        )}
+        {view === 'allowance' && (
+          <AllowanceView
+            players={players}
+            allowances={allowances}
+            allowancePayments={allowancePayments}
+            getAllowanceConfig={getAllowanceConfig}
+            calcBonus={calcBonus}
+            calcTotal={calcTotal}
+            getPayment={getPayment}
+            getPointsForMonth={getPointsForMonth}
+            onConfigAllowance={(playerId) => setShowAllowanceModal(playerId)}
+            onRemoveAllowance={removeAllowanceConfig}
+            onRegisterPayment={(data) => setShowPaymentModal(data)}
+            onRemovePayment={removePayment}
+          />
+        )}
+      </div>
+
+      {showTaskModal && (
+        <TaskModal task={showTaskModal === 'new' ? null : showTaskModal} players={players}
+          onClose={() => setShowTaskModal(null)} onSave={saveTask} />
+      )}
+      {showSettingsModal && (
+        <SettingsModal players={players} onClose={() => setShowSettingsModal(false)}
+          onAddPlayer={() => { setShowSettingsModal(false); setShowPlayerModal('new'); }}
+          onEditPlayer={(player) => { setShowSettingsModal(false); setShowPlayerModal(player); }}
+          onRemovePlayer={removePlayer} />
+      )}
+      {showPlayerModal && (
+        <PlayerModal player={showPlayerModal === 'new' ? null : showPlayerModal}
+          onClose={() => setShowPlayerModal(null)} onSave={savePlayer} />
+      )}
+      {showRewardModal && (
+        <RewardModal reward={showRewardModal === 'new' ? null : showRewardModal}
+          onClose={() => setShowRewardModal(null)} onSave={saveReward} />
+      )}
+      {showAllowanceModal && (
+        <AllowanceConfigModal
+          playerId={showAllowanceModal}
+          player={players.find(p => p.id === showAllowanceModal)}
+          config={getAllowanceConfig(showAllowanceModal)}
+          onClose={() => setShowAllowanceModal(null)}
+          onSave={(config) => saveAllowanceConfig(showAllowanceModal, config)}
+        />
+      )}
+      {showPaymentModal && (
+        <PaymentModal
+          data={showPaymentModal}
+          player={players.find(p => p.id === showPaymentModal.playerId)}
+          existingPayment={getPayment(showPaymentModal.playerId, showPaymentModal.monthKey)}
+          calcTotal={calcTotal}
+          calcBonus={calcBonus}
+          getAllowanceConfig={getAllowanceConfig}
+          onClose={() => setShowPaymentModal(null)}
+          onSave={savePayment}
+        />
+      )}
+
+      {celebration && (
+        <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50 px-4">
+          <div style={{ animation: 'celebrate 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' }} className="text-center">
+            <div className="text-6xl sm:text-8xl mb-2">{celebration.player.emoji}</div>
+            <div className="bungee text-4xl sm:text-6xl neon-text" style={{ color: celebration.player.color }}>
+              +{celebration.points}
+            </div>
+            <div className="text-white text-base sm:text-xl mt-2 font-bold">{celebration.catIcon} {celebration.task.name}</div>
+          </div>
+        </div>
+      )}
+
+      {newBadge && (
+        <div className="fixed top-4 sm:top-8 left-1/2 z-50 bg-black border-2 rounded-2xl px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 shadow-2xl max-w-[90vw]"
+          style={{ borderColor: newBadge.player.color, animation: 'slideDown 2.8s ease-in-out', boxShadow: `0 0 40px ${newBadge.player.color}` }}>
+          <div className="text-3xl sm:text-5xl">{newBadge.badge.icon}</div>
+          <div className="min-w-0">
+            <div className="text-[10px] sm:text-xs uppercase tracking-widest" style={{ color: newBadge.player.color }}>Nova conquista!</div>
+            <div className="bungee text-base sm:text-xl text-white truncate">{newBadge.badge.name}</div>
+            <div className="text-white/60 text-xs sm:text-sm truncate">{newBadge.player.name}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============== EMPTY HOME (nova ilustração SVG) ==============
+function EmptyHome() {
+  return (
+    <div className="text-center py-8 sm:py-12">
+      {/* Ilustração SVG: família + atividades */}
+      <div className="float-anim inline-block mb-6">
+        <svg viewBox="0 0 400 240" className="w-full max-w-sm sm:max-w-md mx-auto" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FF3D9A" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#00E5FF" stopOpacity="0.1" />
+            </linearGradient>
+            <linearGradient id="houseGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FFD600" />
+              <stop offset="100%" stopColor="#FF9100" />
+            </linearGradient>
+          </defs>
+
+          {/* Sol/halo de fundo */}
+          <circle cx="200" cy="120" r="100" fill="url(#skyGrad)" />
+
+          {/* Casa central */}
+          <g transform="translate(140, 100)">
+            {/* Telhado */}
+            <polygon points="60,0 120,40 0,40" fill="url(#houseGrad)" stroke="#FFD600" strokeWidth="2" />
+            {/* Corpo */}
+            <rect x="15" y="40" width="90" height="60" fill="#1a0a2e" stroke="#FF3D9A" strokeWidth="2" rx="4" />
+            {/* Porta */}
+            <rect x="50" y="65" width="20" height="35" fill="#FF3D9A" rx="2" />
+            <circle cx="65" cy="83" r="1.5" fill="#FFD600" />
+            {/* Janelas */}
+            <rect x="22" y="50" width="18" height="18" fill="#00E5FF" stroke="#FFD600" strokeWidth="1.5" rx="2" />
+            <line x1="31" y1="50" x2="31" y2="68" stroke="#FFD600" strokeWidth="1" />
+            <line x1="22" y1="59" x2="40" y2="59" stroke="#FFD600" strokeWidth="1" />
+            <rect x="80" y="50" width="18" height="18" fill="#76FF03" stroke="#FFD600" strokeWidth="1.5" rx="2" />
+            <line x1="89" y1="50" x2="89" y2="68" stroke="#FFD600" strokeWidth="1" />
+            <line x1="80" y1="59" x2="98" y2="59" stroke="#FFD600" strokeWidth="1" />
+          </g>
+
+          {/* 4 figuras da família ao redor */}
+          {/* Pai (esquerda) */}
+          <g transform="translate(70, 150)">
+            <circle cx="0" cy="0" r="14" fill="#00E5FF" />
+            <text x="0" y="5" textAnchor="middle" fontSize="16">🦾</text>
+          </g>
+          {/* Mãe (direita) */}
+          <g transform="translate(330, 150)">
+            <circle cx="0" cy="0" r="14" fill="#FF3D9A" />
+            <text x="0" y="5" textAnchor="middle" fontSize="16">💫</text>
+          </g>
+          {/* Filha 1 (esquerda baixa) */}
+          <g transform="translate(110, 200)">
+            <circle cx="0" cy="0" r="12" fill="#FFD600" />
+            <text x="0" y="4" textAnchor="middle" fontSize="14">🦄</text>
+          </g>
+          {/* Filha 2 (direita baixa) */}
+          <g transform="translate(290, 200)">
+            <circle cx="0" cy="0" r="12" fill="#76FF03" />
+            <text x="0" y="4" textAnchor="middle" fontSize="14">🌈</text>
+          </g>
+
+          {/* Ícones de atividades flutuando */}
+          <text x="50" y="80" fontSize="20" opacity="0.8">📚</text>
+          <text x="350" y="80" fontSize="20" opacity="0.8">🧼</text>
+          <text x="40" y="50" fontSize="18" opacity="0.7">💪</text>
+          <text x="360" y="50" fontSize="18" opacity="0.7">🎨</text>
+          <text x="200" y="40" fontSize="22" opacity="0.9">⭐</text>
+
+          {/* Conexões pontilhadas ligando família à casa */}
+          <line x1="84" y1="150" x2="150" y2="150" stroke="#00E5FF" strokeWidth="1" strokeDasharray="2,3" opacity="0.5" />
+          <line x1="316" y1="150" x2="250" y2="150" stroke="#FF3D9A" strokeWidth="1" strokeDasharray="2,3" opacity="0.5" />
+          <line x1="122" y1="200" x2="170" y2="195" stroke="#FFD600" strokeWidth="1" strokeDasharray="2,3" opacity="0.5" />
+          <line x1="278" y1="200" x2="230" y2="195" stroke="#76FF03" strokeWidth="1" strokeDasharray="2,3" opacity="0.5" />
+
+          {/* Chão */}
+          <line x1="20" y1="220" x2="380" y2="220" stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeDasharray="3,4" />
+        </svg>
+      </div>
+
+      <h2 className="bungee text-2xl sm:text-3xl text-white mb-3">Bem-vindos ao {APP_NAME.first}{APP_NAME.second}!</h2>
+      <p className="text-white/60 mb-6 max-w-md mx-auto px-4 text-sm sm:text-base">
+        Cadastre as atividades da família e comecem a competir construindo bons hábitos juntos.
+      </p>
+      <p className="text-white/40 text-xs sm:text-sm">
+        Vai na aba <strong className="text-yellow-300">Tarefas</strong> para criar a primeira missão.
+      </p>
+    </div>
+  );
+}
+
+// ============== HOME COMPACT (nova visão limpa) ==============
+function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, onComplete, getTasksForPlayer }) {
+  return (
+    <div className="space-y-3">
+      {players.map(player => {
+        const playerTasks = getTasksForPlayer(player.id);
+        const monthPts = getPoints(player.id, 'month');
+        const dayPts = getPoints(player.id, 'day');
+        const streak = getStreak(player.id);
+        const totalTasks = playerTasks.length;
+        const doneTasks = playerTasks.filter(t => isTaskDone(t.id, player.id)).length;
+        const completionPct = totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0;
+
+        return (
+          <div key={player.id} className="bg-black/50 backdrop-blur-sm border-2 rounded-2xl p-3 sm:p-4"
+            style={{ borderColor: player.color + '60', boxShadow: `0 0 20px ${player.color}20` }}>
+
+            {/* Linha do jogador (tudo numa linha só) */}
+            <div className="flex items-center gap-2 sm:gap-3 mb-3">
+              <div className="text-3xl sm:text-4xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 10px ${player.color})` }}>
+                {player.emoji}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="bungee text-base sm:text-lg text-white truncate">{player.name}</span>
+                  {streak > 0 && (
+                    <span className="flex items-center gap-0.5 bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                      <Flame size={10} />{streak}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="bungee text-base sm:text-lg" style={{ color: player.color }}>{monthPts}</span>
+                  <span className="text-[10px] text-white/50 uppercase">pts</span>
+                  {dayPts > 0 && <span className="text-[10px] text-green-400 font-bold">+{dayPts} hoje</span>}
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="text-xs text-white/70 font-bold">{doneTasks}/{totalTasks}</div>
+                <div className="w-12 sm:w-16 h-1.5 bg-white/10 rounded-full mt-1 overflow-hidden">
+                  <div className="h-full transition-all" style={{ width: `${completionPct}%`, background: player.color }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Faixa de ícones - tarefas em linha única horizontal */}
+            {totalTasks === 0 ? (
+              <div className="text-white/30 text-xs italic text-center py-2">Nenhuma tarefa atribuída</div>
+            ) : (
+              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-custom pb-1">
+                {playerTasks.map(task => {
+                  const cat = CATEGORIES.find(c => c.id === task.category) || CATEGORIES[5];
+                  const done = isTaskDone(task.id, player.id);
+                  const progress = getTaskProgress(task.id, player.id);
+                  const pct = Math.min(100, (progress.current / progress.goal) * 100);
+
+                  return (
+                    <button
+                      key={task.id}
+                      onClick={() => !done && onComplete(task.id, player.id)}
+                      disabled={done}
+                      title={`${task.name} · ${progress.current}/${progress.goal}`}
+                      className={`task-icon-btn relative flex items-center justify-center rounded-xl flex-shrink-0 ${done ? 'done cursor-not-allowed' : 'cursor-pointer'}`}
+                      style={{
+                        width: '44px',
+                        height: '44px',
+                        background: done ? '#1a1a2e' : `linear-gradient(135deg, ${cat.color}30, ${cat.color}10)`,
+                        border: `1.5px solid ${done ? '#2a2a3e' : cat.color + 'cc'}`,
+                        boxShadow: done ? 'none' : `0 0 8px ${cat.color}30`,
+                      }}
+                    >
+                      <div className="text-xl">{cat.icon}</div>
+                      {done && (
+                        <div className="absolute -top-0.5 -right-0.5 rounded-full p-0.5" style={{ background: player.color }}>
+                          <Check size={8} className="text-black" strokeWidth={3} />
+                        </div>
+                      )}
+                      {!done && progress.goal > 1 && (
+                        <>
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/40 rounded-b-xl overflow-hidden">
+                            <div className="h-full" style={{ width: `${pct}%`, background: cat.color }} />
+                          </div>
+                          <div className="absolute -top-1 -right-1 bg-black text-white text-[8px] font-bold rounded-full px-1 border" style={{ borderColor: cat.color }}>
+                            {progress.current}
+                          </div>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============== HOME DETAILED (a antiga, com cards maiores) ==============
+function DetailedHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, onComplete, getBadges, getTasksForPlayer, getPointsForPlayer }) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
+      {players.map(player => (
+        <PlayerCardDetailed key={player.id} player={player} tasks={getTasksForPlayer(player.id)}
+          getPoints={getPoints} getStreak={getStreak} getTaskProgress={getTaskProgress}
+          isTaskDone={isTaskDone} onComplete={onComplete} getBadges={getBadges}
+          getPointsForPlayer={getPointsForPlayer} />
+      ))}
+    </div>
+  );
+}
+
+function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, onComplete, getBadges, getPointsForPlayer }) {
+  const monthPts = getPoints(player.id, 'month');
+  const dayPts = getPoints(player.id, 'day');
+  const streak = getStreak(player.id);
+  const badges = getBadges(player.id);
+
+  const byFreq = {
+    daily: tasks.filter(t => t.frequency === 'daily'),
+    weekly: tasks.filter(t => t.frequency === 'weekly'),
+    monthly: tasks.filter(t => t.frequency === 'monthly'),
+  };
+
+  const totalTasks = tasks.length;
+  const doneTasks = tasks.filter(t => isTaskDone(t.id, player.id)).length;
+
+  return (
+    <div className="relative bg-black/50 backdrop-blur-sm border-2 rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col"
+      style={{ borderColor: player.color + '80', boxShadow: `0 0 30px ${player.color}30` }}>
+      <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-white/5">
+        <div className="text-4xl sm:text-5xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 15px ${player.color})` }}>
+          {player.emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="bungee text-base sm:text-xl text-white truncate">{player.name}</div>
+          <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
+            <span className="bungee text-xl sm:text-2xl neon-text" style={{ color: player.color }}>{monthPts}</span>
+            <span className="text-[10px] sm:text-xs text-white/50 uppercase tracking-widest">pts/mês</span>
+            {dayPts > 0 && <span className="text-[10px] sm:text-xs text-green-400 font-bold">+{dayPts} hoje</span>}
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          {streak > 0 && (
+            <div className="flex items-center gap-1 bg-orange-500/20 text-orange-300 px-2 py-1 rounded-full text-[10px] sm:text-xs font-bold">
+              <Flame size={11} />{streak}
+            </div>
+          )}
+          {totalTasks > 0 && (
+            <div className="text-[10px] sm:text-xs text-white/60">{doneTasks}/{totalTasks}</div>
+          )}
+        </div>
+      </div>
+
+      {badges.length > 0 && (
+        <div className="flex gap-1 mb-3 sm:mb-4 flex-wrap">
+          {badges.slice(-5).map(b => (
+            <span key={b.id} title={b.name} className="text-base sm:text-lg">{b.icon}</span>
+          ))}
+          {badges.length > 5 && <span className="text-[10px] sm:text-xs text-white/50 self-center">+{badges.length - 5}</span>}
+        </div>
+      )}
+
+      <div className="space-y-3 sm:space-y-4 flex-1">
+        {totalTasks === 0 && (
+          <div className="text-center py-8 text-white/40 text-sm italic">Nenhuma tarefa atribuída</div>
+        )}
+        {Object.entries(byFreq).map(([freqId, list]) => {
+          if (list.length === 0) return null;
+          const freq = FREQUENCIES.find(f => f.id === freqId);
+          return (
+            <div key={freqId}>
+              <div className="text-[10px] uppercase tracking-widest text-white/40 font-bold mb-2">{freq.name}</div>
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                {list.map(task => {
+                  const cat = CATEGORIES.find(c => c.id === task.category) || CATEGORIES[5];
+                  const done = isTaskDone(task.id, player.id);
+                  const progress = getTaskProgress(task.id, player.id);
+                  const pct = Math.min(100, (progress.current / progress.goal) * 100);
+                  const points = getPointsForPlayer(task, player.id);
+
+                  return (
+                    <button
+                      key={task.id}
+                      onClick={() => !done && onComplete(task.id, player.id)}
+                      disabled={done}
+                      title={`${task.name} · ${points} pts · ${progress.current}/${progress.goal}`}
+                      className={`task-icon-btn relative flex flex-col items-center justify-center rounded-xl sm:rounded-2xl p-1.5 sm:p-2 ${done ? 'done cursor-not-allowed' : 'cursor-pointer'}`}
+                      style={{
+                        aspectRatio: '1 / 1',
+                        background: done ? '#1a1a2e' : `linear-gradient(135deg, ${cat.color}25, ${cat.color}08)`,
+                        border: `2px solid ${done ? '#2a2a3e' : cat.color + 'aa'}`,
+                        boxShadow: done ? 'none' : `0 0 12px ${cat.color}40`,
+                      }}
+                    >
+                      <div className="text-xl sm:text-2xl leading-none">{cat.icon}</div>
+                      <div className="text-[8px] sm:text-[9px] text-white/70 mt-0.5 sm:mt-1 font-bold leading-tight text-center w-full px-0.5" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {task.name}
+                      </div>
+                      {done && (
+                        <div className="absolute -top-1 -right-1 rounded-full p-0.5" style={{ background: player.color }}>
+                          <Check size={10} className="text-black" strokeWidth={3} />
+                        </div>
+                      )}
+                      {!done && progress.goal > 1 && (
+                        <>
+                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40 rounded-b-xl sm:rounded-b-2xl overflow-hidden">
+                            <div className="h-full" style={{ width: `${pct}%`, background: cat.color }} />
+                          </div>
+                          <div className="absolute -top-1 -right-1 bg-black text-white text-[8px] sm:text-[9px] font-bold rounded-full px-1 sm:px-1.5 py-0.5 border" style={{ borderColor: cat.color }}>
+                            {progress.current}/{progress.goal}
+                          </div>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============== MONTH VIEW ==============
+function MonthView({ players, tasks, completions }) {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedPlayer, setSelectedPlayer] = useState('all');
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startWeekday = firstDay.getDay();
+
+  const changeMonth = (delta) => {
+    const d = new Date(currentMonth);
+    d.setMonth(d.getMonth() + delta);
+    setCurrentMonth(d);
+    setSelectedDay(null);
+    playSound('click');
+  };
+
+  const getDayCompletions = (day) => {
+    const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return completions.filter(c => {
+      if (c.date !== key) return false;
+      if (selectedPlayer !== 'all' && c.playerId !== selectedPlayer) return false;
+      return true;
+    });
+  };
+
+  const getDayPoints = (day) => getDayCompletions(day).reduce((s, c) => s + c.points, 0);
+
+  const getDayHeatmap = (day) => {
+    const dayComps = getDayCompletions(day);
+    if (dayComps.length === 0) return null;
+    const categoryColors = dayComps.map(c => {
+      const task = tasks.find(t => t.id === c.taskId);
+      const cat = task ? CATEGORIES.find(cat => cat.id === task.category) : null;
+      return cat?.color || '#FF9100';
+    });
+    const dominantColor = blendColors(categoryColors);
+    const intensity = Math.min(0.9, 0.2 + (dayComps.length * 0.08));
+    return { color: dominantColor, intensity, count: dayComps.length };
+  };
+
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const today = new Date();
+  const isToday = (d) => d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+  const isFuture = (d) => new Date(year, month, d) > today;
+
+  const selectedCompletions = selectedDay ? getDayCompletions(selectedDay) : [];
+
+  let monthTotal = 0;
+  let monthCount = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const comps = getDayCompletions(d);
+    monthTotal += comps.reduce((s, c) => s + c.points, 0);
+    monthCount += comps.length;
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button onClick={() => changeMonth(-1)} className="bg-black/40 border border-white/10 rounded-xl p-2 hover:bg-black/60 transition-colors">
+            <ChevronLeft size={18} className="text-white" />
+          </button>
+          <h2 className="bungee text-lg sm:text-2xl md:text-3xl text-white neon-text" style={{ color: '#FFD600' }}>
+            {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}
+          </h2>
+          <button onClick={() => changeMonth(1)} className="bg-black/40 border border-white/10 rounded-xl p-2 hover:bg-black/60 transition-colors">
+            <ChevronRight size={18} className="text-white" />
+          </button>
+        </div>
+
+        <div className="flex gap-1.5 sm:gap-2 flex-wrap">
+          <button onClick={() => { setSelectedPlayer('all'); playSound('click'); }}
+            className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all ${selectedPlayer === 'all' ? 'bg-white text-black' : 'bg-black/40 text-white/60 border border-white/10'}`}>
+            TODOS
+          </button>
+          {players.map(p => (
+            <button key={p.id} onClick={() => { setSelectedPlayer(p.id); playSound('click'); }}
+              className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex items-center gap-1 ${selectedPlayer === p.id ? 'text-black' : 'bg-black/40 text-white/60 border border-white/10'}`}
+              style={selectedPlayer === p.id ? { background: p.color, boxShadow: `0 0 15px ${p.color}80` } : {}}>
+              <span>{p.emoji}</span>
+              <span className="hidden sm:inline">{p.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
+        <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-4">
+          <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-widest mb-1">Atividades</div>
+          <div className="bungee text-2xl sm:text-3xl text-white">{monthCount}</div>
+        </div>
+        <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-4">
+          <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-widest mb-1">Pontos</div>
+          <div className="bungee text-2xl sm:text-3xl" style={{ color: '#FFD600' }}>{monthTotal}</div>
+        </div>
+        <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-4 col-span-2 md:col-span-1">
+          <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-widest mb-1">Filtro</div>
+          <div className="bungee text-base sm:text-lg text-white truncate">
+            {selectedPlayer === 'all' ? 'Família toda' : players.find(p => p.id === selectedPlayer)?.name}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-black/50 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-2 sm:p-3 md:p-6">
+        <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2">
+          {['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map(d => (
+            <div key={d} className="text-center text-[9px] sm:text-[10px] md:text-xs font-bold text-white/50 uppercase tracking-widest py-1 sm:py-2">{d}</div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 md:gap-2">
+          {cells.map((day, i) => {
+            if (day === null) return <div key={i} />;
+            const dayComps = getDayCompletions(day);
+            const dayPts = getDayPoints(day);
+            const future = isFuture(day);
+            const isSelected = selectedDay === day;
+            const heatmap = getDayHeatmap(day);
+
+            let bgStyle = 'rgba(0,0,0,0.3)';
+            let borderColor = 'rgba(255,255,255,0.05)';
+            if (heatmap) {
+              const alpha = Math.round(heatmap.intensity * 255).toString(16).padStart(2, '0');
+              bgStyle = `linear-gradient(135deg, ${heatmap.color}${alpha}, ${heatmap.color}${Math.round(heatmap.intensity * 0.5 * 255).toString(16).padStart(2, '0')})`;
+              borderColor = heatmap.color + '80';
+            }
+            if (isToday(day)) borderColor = '#FFD600';
+
+            return (
+              <button
+                key={i}
+                onClick={() => !future && setSelectedDay(day)}
+                disabled={future}
+                className={`aspect-square relative rounded-lg sm:rounded-xl p-1 sm:p-2 transition-all ${
+                  future ? 'opacity-30 cursor-not-allowed' : 'hover:scale-105 active:scale-95 cursor-pointer'
+                } ${isSelected ? 'ring-2 ring-yellow-400' : ''}`}
+                style={{
+                  background: bgStyle,
+                  border: `${isToday(day) ? 2 : 1}px solid ${borderColor}`,
+                  boxShadow: heatmap ? `0 0 ${heatmap.intensity * 15}px ${heatmap.color}40` : 'none',
+                }}
+              >
+                <div className={`text-[10px] sm:text-xs md:text-sm font-bold mb-0.5 ${isToday(day) ? 'text-yellow-300' : 'text-white/90'}`}>
+                  {day}
+                </div>
+                {dayComps.length > 0 && (
+                  <div className="flex flex-wrap gap-0.5 justify-center items-center leading-none">
+                    {dayComps.slice(0, 6).map((c, idx) => {
+                      const task = tasks.find(t => t.id === c.taskId);
+                      const cat = task ? CATEGORIES.find(cat => cat.id === task.category) : null;
+                      return (
+                        <span key={idx} className="text-[9px] sm:text-xs md:text-sm leading-none" title={task?.name}>
+                          {cat?.icon || '⭐'}
+                        </span>
+                      );
+                    })}
+                    {dayComps.length > 6 && (
+                      <span className="text-[7px] sm:text-[8px] text-white/70 font-bold">+{dayComps.length - 6}</span>
+                    )}
+                  </div>
+                )}
+                {dayPts > 0 && (
+                  <div className="absolute bottom-0.5 right-1 text-[7px] sm:text-[8px] md:text-[10px] font-bold text-yellow-300">{dayPts}</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 sm:mt-6 pt-4 border-t border-white/5">
+          <div className="text-[10px] uppercase tracking-widest text-white/40 mb-2 font-bold">Categorias</div>
+          <div className="flex flex-wrap gap-2">
+            {CATEGORIES.map(cat => (
+              <div key={cat.id} className="flex items-center gap-1.5 bg-black/30 border rounded-lg px-2 py-1" style={{ borderColor: cat.color + '40' }}>
+                <span className="text-sm">{cat.icon}</span>
+                <span className="text-[10px] text-white/70 font-bold">{cat.name}</span>
+                <div className="w-2 h-2 rounded-full" style={{ background: cat.color }} />
+              </div>
+            ))}
+          </div>
+          <div className="text-[10px] text-white/40 mt-2 italic">A cor segue a categoria predominante; mais brilhante = mais atividades</div>
+        </div>
+      </div>
+
+      {selectedDay && (
+        <div className="bg-black/50 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4 gap-2">
+            <h3 className="bungee text-base sm:text-xl text-white">
+              DIA {selectedDay} · {selectedCompletions.length} ativ. · {selectedCompletions.reduce((s, c) => s + c.points, 0)} pts
+            </h3>
+            <button onClick={() => setSelectedDay(null)} className="text-white/50 hover:text-white flex-shrink-0">
+              <X size={20} />
+            </button>
+          </div>
+          {selectedCompletions.length === 0 ? (
+            <div className="text-white/40 italic text-center py-4">Nenhuma atividade neste dia</div>
+          ) : (
+            <div className="space-y-3">
+              {players.filter(p => selectedPlayer === 'all' || p.id === selectedPlayer).map(player => {
+                const playerComps = selectedCompletions.filter(c => c.playerId === player.id);
+                if (playerComps.length === 0) return null;
+                const playerPts = playerComps.reduce((s, c) => s + c.points, 0);
+                return (
+                  <div key={player.id} className="bg-white/5 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">{player.emoji}</span>
+                      <span className="bungee text-sm text-white">{player.name}</span>
+                      <span className="text-xs bungee ml-auto" style={{ color: player.color }}>+{playerPts}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {playerComps.map((c, idx) => {
+                        const task = tasks.find(t => t.id === c.taskId);
+                        const cat = task ? CATEGORIES.find(cat => cat.id === task.category) : null;
+                        return (
+                          <div key={idx} className="flex items-center gap-1.5 bg-black/40 rounded-lg px-2 py-1 border border-white/10">
+                            <span>{cat?.icon || '⭐'}</span>
+                            <span className="text-xs text-white/80">{task?.name || 'Tarefa removida'}</span>
+                            <span className="text-[10px] text-yellow-300 font-bold">+{c.points}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============== RANKING VIEW ==============
+function RankingView({ players, completions, getStreak, getBadges, getPoints }) {
+  const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣'];
+  const [period, setPeriod] = useState('month');
+  const rankingByPeriod = [...players].map(p => ({ ...p, points: getPoints(p.id, period) })).sort((a, b) => b.points - a.points);
+  const maxPoints = Math.max(...rankingByPeriod.map(r => r.points), 1);
+
+  const history = {};
+  players.forEach(p => {
+    history[p.id] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      const pts = completions.filter(c => c.playerId === p.id && c.date === key).reduce((s, c) => s + c.points, 0);
+      history[p.id].push({ date: key, points: pts });
+    }
+  });
+
+  return (
+    <div className="space-y-6 sm:space-y-8">
+      <div className="flex gap-2 justify-center">
+        {[{ id: 'day', label: 'Hoje' }, { id: 'week', label: 'Semana' }, { id: 'month', label: 'Mês' }].map(p => (
+          <button key={p.id} onClick={() => { setPeriod(p.id); playSound('click'); }}
+            className={`px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all ${period === p.id ? 'text-black' : 'text-white/60 bg-black/40 border border-white/10'}`}
+            style={period === p.id ? { background: 'linear-gradient(135deg, #FFD600, #FF3D9A)' } : {}}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-black/50 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8">
+        <h2 className="bungee text-xl sm:text-2xl md:text-3xl text-center text-white mb-6 sm:mb-8 neon-text" style={{ color: '#FFD600' }}>
+          🏆 RANKING {period === 'day' ? 'DO DIA' : period === 'week' ? 'DA SEMANA' : 'DO MÊS'}
+        </h2>
+        <div className="space-y-3 sm:space-y-4">
+          {rankingByPeriod.map((player, idx) => (
+            <div key={player.id} className="flex items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl sm:rounded-2xl"
+              style={{ background: `linear-gradient(90deg, ${player.color}20 0%, transparent 100%)`, border: `2px solid ${player.color}40` }}>
+              <div className="text-2xl sm:text-3xl md:text-4xl w-8 sm:w-10 md:w-14 text-center flex-shrink-0">{medals[idx] || `#${idx + 1}`}</div>
+              <div className="text-3xl sm:text-4xl md:text-5xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 10px ${player.color})` }}>{player.emoji}</div>
+              <div className="flex-1 min-w-0">
+                <div className="bungee text-base sm:text-lg md:text-xl text-white truncate">{player.name}</div>
+                <div className="h-2 sm:h-3 rounded-full bg-white/5 overflow-hidden mt-2">
+                  <div className="h-full rounded-full transition-all duration-1000"
+                    style={{ width: `${(player.points / maxPoints) * 100}%`, background: `linear-gradient(90deg, ${player.color}, ${player.color}99)`, boxShadow: `0 0 10px ${player.color}` }} />
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <div className="bungee text-xl sm:text-2xl md:text-3xl neon-text" style={{ color: player.color }}>{player.points}</div>
+                <div className="text-[9px] sm:text-[10px] text-white/50 uppercase tracking-widest">pontos</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-black/50 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+        <h3 className="bungee text-base sm:text-xl text-white mb-4 sm:mb-6 flex items-center gap-2">
+          <BarChart3 size={20} />
+          EVOLUÇÃO - 14 DIAS
+        </h3>
+        <div className="overflow-x-auto scrollbar-custom">
+          <svg viewBox="0 0 700 250" className="w-full" style={{ minWidth: '500px' }}>
+            {[0, 25, 50, 75, 100].map(y => (
+              <line key={y} x1="40" x2="690" y1={220 - y * 1.8} y2={220 - y * 1.8} stroke="rgba(255,255,255,0.05)" />
+            ))}
+            {players[0] && history[players[0].id].map((h, i) => {
+              const x = 40 + (i * (650 / 13));
+              const d = new Date(h.date);
+              return (
+                <text key={i} x={x} y={240} fill="rgba(255,255,255,0.4)" fontSize="10" textAnchor="middle">
+                  {d.getDate()}/{d.getMonth() + 1}
+                </text>
+              );
+            })}
+            {players.map(player => {
+              const pts = history[player.id];
+              const max = Math.max(...Object.values(history).flat().map(h => h.points), 10);
+              const path = pts.map((h, i) => {
+                const x = 40 + (i * (650 / 13));
+                const y = 220 - (h.points / max) * 180;
+                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+              }).join(' ');
+              return (
+                <g key={player.id}>
+                  <path d={path} fill="none" stroke={player.color} strokeWidth="2.5" opacity="0.8" style={{ filter: `drop-shadow(0 0 4px ${player.color})` }} />
+                  {pts.map((h, i) => {
+                    const x = 40 + (i * (650 / 13));
+                    const y = 220 - (h.points / max) * 180;
+                    return <circle key={i} cx={x} cy={y} r="3" fill={player.color} />;
+                  })}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+        <div className="flex flex-wrap gap-3 sm:gap-4 mt-4 justify-center">
+          {players.map(p => (
+            <div key={p.id} className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ background: p.color, boxShadow: `0 0 8px ${p.color}` }} />
+              <span className="text-white/70 text-xs sm:text-sm">{p.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        {players.map(player => {
+          const badges = getBadges(player.id);
+          const streak = getStreak(player.id);
+          const totalTasks = completions.filter(c => c.playerId === player.id).length;
+          return (
+            <div key={player.id} className="bg-black/50 backdrop-blur-sm border-2 rounded-2xl p-4 sm:p-5" style={{ borderColor: player.color + '60' }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="text-3xl sm:text-4xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 10px ${player.color})` }}>{player.emoji}</div>
+                <div className="min-w-0">
+                  <div className="bungee text-base sm:text-xl text-white truncate">{player.name}</div>
+                  <div className="text-[10px] sm:text-xs text-white/50">{totalTasks} tarefas no total</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <Stat label="Mês" value={getPoints(player.id, 'month')} color={player.color} />
+                <Stat label="Semana" value={getPoints(player.id, 'week')} color={player.color} />
+                <Stat label="Streak" value={streak + '🔥'} color={player.color} />
+              </div>
+              <div>
+                <div className="text-[10px] sm:text-xs uppercase tracking-widest text-white/50 mb-2">Conquistas ({badges.length})</div>
+                {badges.length === 0 ? (
+                  <div className="text-white/30 text-xs sm:text-sm italic">Ainda nenhuma. Vamos lá!</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {badges.map(b => (
+                      <div key={b.id} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 flex items-center gap-1">
+                        <span>{b.icon}</span>
+                        <span className="text-[10px] sm:text-xs text-white/70">{b.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }) {
+  return (
+    <div className="bg-white/5 rounded-xl p-2 text-center">
+      <div className="bungee text-base sm:text-xl" style={{ color }}>{value}</div>
+      <div className="text-[9px] sm:text-[10px] text-white/50 uppercase tracking-widest">{label}</div>
+    </div>
+  );
+}
+
+// ============== REWARDS VIEW ==============
+function RewardsView({ players, rewards, getPoints, onAdd, onEdit, onRemove, onMarkAwarded }) {
+  const currentMonth = monthKey();
+  const monthLabel = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+  const currentRewards = rewards.filter(r => r.monthKey === currentMonth).sort((a, b) => a.position - b.position);
+  const pastRewards = rewards.filter(r => r.monthKey !== currentMonth && r.awarded).sort((a, b) => (b.awardedAt || 0) - (a.awardedAt || 0));
+  const ranking = [...players].map(p => ({ ...p, points: getPoints(p.id, 'month') })).sort((a, b) => b.points - a.points);
+  const positionLabels = ['🥇 1º LUGAR', '🥈 2º LUGAR', '🥉 3º LUGAR', '4️⃣ 4º LUGAR', '5️⃣ 5º LUGAR'];
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <div>
+          <h2 className="bungee text-xl sm:text-2xl md:text-3xl text-white neon-text" style={{ color: '#FFD600' }}>🎁 PRÊMIOS</h2>
+          <p className="text-white/60 text-xs sm:text-sm mt-1">Defina recompensas e celebrem juntos no fim do mês</p>
+        </div>
+        <button onClick={onAdd} className="flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-bold text-black text-sm sm:text-base"
+          style={{ background: 'linear-gradient(135deg, #FFD600, #FF3D9A)', boxShadow: '0 0 20px rgba(255,61,154,0.5)' }}>
+          <Plus size={18} strokeWidth={3} />
+          NOVO PRÊMIO
+        </button>
+      </div>
+
+      <div className="bg-black/50 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+        <h3 className="bungee text-base sm:text-lg text-white mb-4 flex items-center gap-2">
+          <Sparkles size={18} className="text-yellow-300" />
+          {monthLabel}
+        </h3>
+
+        {currentRewards.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="text-5xl mb-3">🎁</div>
+            <p className="text-white/50 text-sm">Nenhum prêmio definido para este mês.</p>
+            <p className="text-white/40 text-xs mt-1">Crie um prêmio para incentivar a competição!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {currentRewards.map(reward => {
+              const positionPlayer = ranking[reward.position - 1];
+              const winner = reward.awarded ? players.find(p => p.id === reward.awardedTo) : positionPlayer;
+              return (
+                <div key={reward.id} className="bg-white/5 border-2 rounded-2xl p-3 sm:p-4"
+                  style={{ borderColor: reward.awarded ? '#76FF03' : '#FFD60040' }}>
+                  <div className="flex items-start gap-3">
+                    <div className="text-4xl sm:text-5xl flex-shrink-0">{reward.icon || '🎁'}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] sm:text-xs uppercase tracking-widest text-yellow-300 font-bold">
+                        {positionLabels[reward.position - 1] || `${reward.position}º LUGAR`}
+                      </div>
+                      <div className="bungee text-base sm:text-lg text-white truncate">{reward.name}</div>
+                      {reward.description && <div className="text-xs text-white/60 mt-1">{reward.description}</div>}
+                      {winner && (
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] uppercase tracking-widest text-white/40 font-bold">
+                            {reward.awarded ? 'Ganhou:' : 'Liderando:'}
+                          </span>
+                          <div className="flex items-center gap-1.5 bg-black/40 rounded-lg px-2 py-1 border" style={{ borderColor: winner.color + '60' }}>
+                            <span className="text-base">{winner.emoji}</span>
+                            <span className="text-xs text-white font-bold">{winner.name}</span>
+                            <span className="text-[10px] bungee" style={{ color: winner.color }}>{winner.points || getPoints(winner.id, 'month')} pts</span>
+                          </div>
+                          {reward.awarded && (
+                            <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full font-bold">✓ ENTREGUE</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      {!reward.awarded && positionPlayer && (
+                        <button
+                          onClick={() => { if (confirm(`Marcar prêmio como entregue para ${positionPlayer.name}?`)) onMarkAwarded(reward.id, positionPlayer.id); }}
+                          className="text-green-400 hover:bg-green-500/10 p-2 rounded-lg transition-colors"
+                          title="Marcar como entregue">
+                          <Check size={16} strokeWidth={3} />
+                        </button>
+                      )}
+                      <button onClick={() => onEdit(reward)} className="text-cyan-400 hover:bg-cyan-500/10 p-2 rounded-lg transition-colors" title="Editar">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => { if (confirm('Remover este prêmio?')) onRemove(reward.id); }}
+                        className="text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-colors" title="Excluir">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {pastRewards.length > 0 && (
+        <div className="bg-black/50 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+          <h3 className="bungee text-base sm:text-lg text-white mb-4 flex items-center gap-2">
+            <Trophy size={18} className="text-orange-300" />
+            HISTÓRICO DE CAMPEÕES
+          </h3>
+          <div className="space-y-2">
+            {pastRewards.slice(0, 10).map(reward => {
+              const winner = players.find(p => p.id === reward.awardedTo);
+              if (!winner) return null;
+              const [year, month] = reward.monthKey.split('-');
+              const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+              return (
+                <div key={reward.id} className="flex items-center gap-3 bg-white/5 rounded-xl p-3">
+                  <div className="text-2xl">{reward.icon || '🎁'}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-white font-bold truncate">{reward.name}</div>
+                    <div className="text-[10px] text-white/50 uppercase">{monthName}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{winner.emoji}</span>
+                    <span className="text-xs text-white font-bold">{winner.name}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============== MANAGE VIEW ==============
+function ManageView({ tasks, players, onAdd, onEdit, onRemove, getGoalForPlayer, getPointsForPlayer }) {
+  const [filter, setFilter] = useState('all');
+  const filtered = filter === 'all' ? tasks : tasks.filter(t => t.frequency === filter);
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {[{ id: 'all', name: 'Todas' }, ...FREQUENCIES].map(f => (
+            <button key={f.id} onClick={() => { setFilter(f.id); playSound('click'); }}
+              className={`px-3 sm:px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all ${filter === f.id ? 'text-black' : 'text-white/60 bg-black/40 border border-white/10'}`}
+              style={filter === f.id ? { background: 'linear-gradient(135deg, #00E5FF, #76FF03)' } : {}}>
+              {f.name}
+            </button>
+          ))}
+        </div>
+        <button onClick={onAdd} className="flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-bold text-black text-sm sm:text-base"
+          style={{ background: 'linear-gradient(135deg, #FFD600, #FF3D9A)', boxShadow: '0 0 20px rgba(255,61,154,0.5)' }}>
+          <Plus size={18} strokeWidth={3} />
+          NOVA TAREFA
+        </button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 sm:py-16">
+          <div className="text-5xl sm:text-6xl mb-4">📋</div>
+          <p className="text-white/50 text-sm sm:text-base">Nenhuma tarefa nesta categoria.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map(task => {
+            const cat = CATEGORIES.find(c => c.id === task.category) || CATEGORIES[5];
+            const freq = FREQUENCIES.find(f => f.id === task.frequency);
+            const assigned = task.assignedTo === 'all' || !task.assignedTo
+              ? players
+              : players.filter(p => Array.isArray(task.assignedTo) && task.assignedTo.includes(p.id));
+            const hasCustomPerPlayer = (task.perPlayerGoals && Object.keys(task.perPlayerGoals).length > 0)
+              || (task.perPlayerPoints && Object.keys(task.perPlayerPoints).length > 0);
+
+            return (
+              <div key={task.id} className="bg-black/50 backdrop-blur-sm border-2 rounded-2xl p-3 sm:p-4 flex items-center gap-3 sm:gap-4"
+                style={{ borderColor: cat.color + '40' }}>
+                <div className="text-2xl sm:text-3xl md:text-4xl flex-shrink-0">{cat.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="bungee text-sm sm:text-base md:text-lg text-white truncate">{task.name}</div>
+                  <div className="text-[10px] sm:text-xs text-white/50 mt-1 flex flex-wrap gap-x-2">
+                    <span style={{ color: cat.color }}>{cat.name}</span>
+                    <span>·</span>
+                    <span>{freq.name}</span>
+                    {!hasCustomPerPlayer && (
+                      <>
+                        <span>·</span>
+                        <span>meta {task.goal}x</span>
+                        <span>·</span>
+                        <span className="text-yellow-300 font-bold">{task.points} pts</span>
+                      </>
+                    )}
+                    {hasCustomPerPlayer && <span className="text-cyan-400 font-bold">⚙️ Metas individuais</span>}
+                  </div>
+                  <div className="flex items-center gap-1 mt-2 flex-wrap">
+                    <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-white/40 mr-1">Para:</span>
+                    {assigned.map(p => {
+                      const goal = getGoalForPlayer(task, p.id);
+                      const points = getPointsForPlayer(task, p.id);
+                      return (
+                        <div key={p.id} className="flex items-center gap-1 bg-black/40 rounded-md px-1.5 py-0.5 border border-white/10" title={`${p.name}: ${goal}x · ${points} pts`}>
+                          <span className="text-sm" style={{ filter: `drop-shadow(0 0 4px ${p.color})` }}>{p.emoji}</span>
+                          {hasCustomPerPlayer && <span className="text-[9px] text-white/60">{goal}x·{points}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  <button onClick={() => onEdit(task)} className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 p-2 rounded-lg transition-colors" title="Editar">
+                    <Edit2 size={16} />
+                  </button>
+                  <button onClick={() => { if (confirm('Remover esta tarefa?')) onRemove(task.id); }}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-lg transition-colors" title="Excluir">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============== MODAL: TAREFA ==============
+function TaskModal({ task, players, onClose, onSave }) {
+  const isEdit = !!task;
+  const [name, setName] = useState(task?.name || '');
+  const [category, setCategory] = useState(task?.category || 'study');
+  const [frequency, setFrequency] = useState(task?.frequency || 'daily');
+  const [goal, setGoal] = useState(task?.goal || 1);
+  const [points, setPoints] = useState(task?.points || 10);
+  const [assignMode, setAssignMode] = useState(task && task.assignedTo !== 'all' && Array.isArray(task.assignedTo) ? 'specific' : 'all');
+  const [assignedIds, setAssignedIds] = useState(task && Array.isArray(task.assignedTo) ? task.assignedTo : players.map(p => p.id));
+  const [individualGoals, setIndividualGoals] = useState(task && task.perPlayerGoals && Object.keys(task.perPlayerGoals).length > 0);
+  const [perPlayerGoals, setPerPlayerGoals] = useState(task?.perPlayerGoals || {});
+  const [perPlayerPoints, setPerPlayerPoints] = useState(task?.perPlayerPoints || {});
+
+  const toggleAssigned = (id) => {
+    setAssignedIds(assignedIds.includes(id) ? assignedIds.filter(i => i !== id) : [...assignedIds, id]);
+  };
+
+  const targetPlayers = assignMode === 'all' ? players : players.filter(p => assignedIds.includes(p.id));
+
+  const submit = () => {
+    if (!name.trim()) return;
+    if (assignMode === 'specific' && assignedIds.length === 0) {
+      alert('Selecione pelo menos uma pessoa.');
+      return;
+    }
+    let finalPerPlayerGoals = {};
+    let finalPerPlayerPoints = {};
+    if (individualGoals) {
+      targetPlayers.forEach(p => {
+        finalPerPlayerGoals[p.id] = Math.max(1, perPlayerGoals[p.id] || goal);
+        finalPerPlayerPoints[p.id] = Math.max(1, perPlayerPoints[p.id] || points);
+      });
+    }
+    onSave({
+      id: task?.id,
+      name: name.trim(),
+      category, frequency,
+      goal: Math.max(1, goal),
+      points: Math.max(1, points),
+      assignedTo: assignMode === 'all' ? 'all' : assignedIds,
+      perPlayerGoals: finalPerPlayerGoals,
+      perPlayerPoints: finalPerPlayerPoints,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+        style={{ borderColor: '#FF3D9A', boxShadow: '0 0 50px rgba(255,61,154,0.4)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="bungee text-lg sm:text-2xl text-white neon-text" style={{ color: '#FFD600' }}>
+            {isEdit ? 'EDITAR TAREFA' : 'NOVA TAREFA'}
+          </h2>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <Field label="Nome da tarefa">
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Ex: Escovar os dentes"
+              className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-pink-500 transition-colors"
+              autoFocus />
+          </Field>
+
+          <Field label="Categoria">
+            <div className="grid grid-cols-3 gap-2">
+              {CATEGORIES.map(c => (
+                <button key={c.id} onClick={() => setCategory(c.id)}
+                  className={`p-2 sm:p-3 rounded-xl border-2 transition-all ${category === c.id ? 'scale-105' : 'border-white/10'}`}
+                  style={category === c.id ? { borderColor: c.color, background: c.color + '20' } : {}}>
+                  <div className="text-xl sm:text-2xl">{c.icon}</div>
+                  <div className="text-[10px] sm:text-xs text-white/70 mt-1">{c.name}</div>
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Para quem">
+            <div className="flex gap-2 mb-3">
+              <button onClick={() => setAssignMode('all')}
+                className={`flex-1 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all ${assignMode === 'all' ? 'bg-cyan-400 text-black' : 'bg-black/40 text-white/60 border border-white/10'}`}>
+                TODOS
+              </button>
+              <button onClick={() => setAssignMode('specific')}
+                className={`flex-1 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all ${assignMode === 'specific' ? 'bg-cyan-400 text-black' : 'bg-black/40 text-white/60 border border-white/10'}`}>
+                ESPECÍFICOS
+              </button>
+            </div>
+            {assignMode === 'specific' && (
+              <div className="grid grid-cols-2 gap-2">
+                {players.map(p => {
+                  const selected = assignedIds.includes(p.id);
+                  return (
+                    <button key={p.id} onClick={() => toggleAssigned(p.id)}
+                      className={`p-2 sm:p-3 rounded-xl border-2 flex items-center gap-2 transition-all ${selected ? '' : 'border-white/10 opacity-50'}`}
+                      style={selected ? { borderColor: p.color, background: p.color + '20' } : {}}>
+                      <span className="text-xl sm:text-2xl">{p.emoji}</span>
+                      <span className="text-white text-xs sm:text-sm font-bold truncate">{p.name}</span>
+                      {selected && <Check size={14} className="text-green-400 ml-auto flex-shrink-0" strokeWidth={3} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Field>
+
+          <Field label="Frequência">
+            <div className="grid grid-cols-3 gap-2">
+              {FREQUENCIES.map(f => (
+                <button key={f.id} onClick={() => setFrequency(f.id)}
+                  className={`p-2 sm:p-3 rounded-xl border-2 font-bold transition-all text-xs sm:text-sm ${frequency === f.id ? 'border-yellow-400 bg-yellow-400/10 text-yellow-300' : 'border-white/10 text-white/60'}`}>
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" checked={individualGoals} onChange={e => setIndividualGoals(e.target.checked)}
+                className="w-5 h-5 rounded accent-cyan-400" />
+              <div className="flex-1">
+                <div className="text-sm font-bold text-cyan-300">Metas individuais por pessoa</div>
+                <div className="text-[10px] text-white/50">Defina quantidade e pontos diferentes para cada um</div>
+              </div>
+            </label>
+          </div>
+
+          {!individualGoals ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={`Meta (${FREQUENCIES.find(f => f.id === frequency)?.label})`}>
+                <input type="number" min="1" value={goal} onChange={e => setGoal(parseInt(e.target.value) || 1)}
+                  className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-400" />
+              </Field>
+              <Field label="Pontos por vez">
+                <input type="number" min="1" value={points} onChange={e => setPoints(parseInt(e.target.value) || 1)}
+                  className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-400" />
+              </Field>
+            </div>
+          ) : (
+            <Field label="Por pessoa (meta + pontos)">
+              <div className="space-y-2 bg-black/30 p-3 rounded-xl">
+                {targetPlayers.map(p => (
+                  <div key={p.id} className="flex items-center gap-2">
+                    <span className="text-2xl flex-shrink-0">{p.emoji}</span>
+                    <span className="text-sm text-white font-bold truncate w-16 sm:w-20">{p.name}</span>
+                    <div className="flex-1 grid grid-cols-2 gap-2">
+                      <div>
+                        <input type="number" min="1"
+                          value={perPlayerGoals[p.id] ?? goal}
+                          onChange={e => setPerPlayerGoals({ ...perPlayerGoals, [p.id]: parseInt(e.target.value) || 1 })}
+                          placeholder="Meta"
+                          className="w-full bg-black/50 border-2 border-white/10 rounded-lg px-2 py-1.5 text-white text-sm focus:border-cyan-400" />
+                        <div className="text-[9px] text-white/40 text-center mt-0.5">meta</div>
+                      </div>
+                      <div>
+                        <input type="number" min="1"
+                          value={perPlayerPoints[p.id] ?? points}
+                          onChange={e => setPerPlayerPoints({ ...perPlayerPoints, [p.id]: parseInt(e.target.value) || 1 })}
+                          placeholder="Pts"
+                          className="w-full bg-black/50 border-2 border-white/10 rounded-lg px-2 py-1.5 text-white text-sm focus:border-cyan-400" />
+                        <div className="text-[9px] text-white/40 text-center mt-0.5">pontos</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-white/40 mt-2 italic">Ex: Filha 1 com meta 2x e 5 pts, Papai com meta 1x e 20 pts</p>
+            </Field>
+          )}
+
+          <button onClick={submit} disabled={!name.trim()}
+            className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, #FFD600, #FF3D9A)', boxShadow: '0 0 20px rgba(255,61,154,0.4)' }}>
+            {isEdit ? 'SALVAR' : 'CRIAR TAREFA'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <label className="block text-[10px] sm:text-xs uppercase tracking-widest text-white/60 mb-2 font-bold">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+// ============== MODAL: CONFIGURAÇÕES ==============
+function SettingsModal({ players, onClose, onAddPlayer, onEditPlayer, onRemovePlayer }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+        style={{ borderColor: '#00E5FF', boxShadow: '0 0 50px rgba(0,229,255,0.4)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="bungee text-lg sm:text-2xl text-white neon-text" style={{ color: '#00E5FF' }}>⚙️ FAMÍLIA</h2>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
+        </div>
+
+        <div className="space-y-3 mb-4">
+          {players.map(p => (
+            <div key={p.id} className="flex items-center gap-3 p-3 rounded-2xl border-2"
+              style={{ borderColor: p.color + '60', background: `linear-gradient(90deg, ${p.color}15, transparent)` }}>
+              <div className="text-3xl sm:text-4xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 8px ${p.color})` }}>{p.emoji}</div>
+              <div className="flex-1 min-w-0">
+                <div className="bungee text-base sm:text-lg text-white truncate">{p.name}</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: p.color }} />
+                  <span className="text-[10px] text-white/50 uppercase tracking-widest">cor</span>
+                </div>
+              </div>
+              <button onClick={() => onEditPlayer(p)}
+                className="text-cyan-400 hover:bg-cyan-500/10 p-2 rounded-lg transition-colors flex-shrink-0" title="Editar">
+                <Edit2 size={16} />
+              </button>
+              <button
+                onClick={() => { if (confirm(`Remover ${p.name}? Todos os dados dessa pessoa serão apagados.`)) onRemovePlayer(p.id); }}
+                disabled={players.length <= 1}
+                className="text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0"
+                title="Excluir">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={onAddPlayer}
+          className="w-full py-3 rounded-xl font-bold text-black bungee flex items-center justify-center gap-2 text-sm sm:text-base"
+          style={{ background: 'linear-gradient(135deg, #00E5FF, #76FF03)', boxShadow: '0 0 20px rgba(0,229,255,0.4)' }}>
+          <UserPlus size={18} strokeWidth={3} />
+          ADICIONAR MEMBRO
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============== MODAL: JOGADOR ==============
+function PlayerModal({ player, onClose, onSave }) {
+  const isEdit = !!player;
+  const [name, setName] = useState(player?.name || '');
+  const [emoji, setEmoji] = useState(player?.emoji || EMOJI_OPTIONS[0]);
+  const [color, setColor] = useState(player?.color || COLOR_OPTIONS[0]);
+
+  const submit = () => {
+    if (!name.trim()) return;
+    onSave({ id: player?.id, name: name.trim(), emoji, color });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+        style={{ borderColor: color, boxShadow: `0 0 50px ${color}60` }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="bungee text-lg sm:text-2xl text-white">{isEdit ? 'EDITAR MEMBRO' : 'NOVO MEMBRO'}</h2>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="text-center">
+            <div className="text-6xl sm:text-8xl mb-2" style={{ filter: `drop-shadow(0 0 20px ${color})` }}>{emoji}</div>
+          </div>
+
+          <Field label="Nome">
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Digite o nome"
+              className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white"
+              autoFocus={!isEdit} />
+          </Field>
+
+          <Field label="Avatar">
+            <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 bg-black/30 p-3 rounded-xl max-h-40 overflow-y-auto scrollbar-custom">
+              {EMOJI_OPTIONS.map(e => (
+                <button key={e} onClick={() => setEmoji(e)}
+                  className={`text-xl sm:text-2xl p-2 rounded-lg transition-all ${emoji === e ? 'bg-white/20 scale-110' : 'hover:bg-white/5'}`}>
+                  {e}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Cor principal">
+            <div className="flex gap-2 flex-wrap">
+              {COLOR_OPTIONS.map(c => (
+                <button key={c} onClick={() => setColor(c)}
+                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full transition-all ${color === c ? 'ring-4 ring-white/50 scale-110' : ''}`}
+                  style={{ background: c, boxShadow: `0 0 15px ${c}` }} />
+              ))}
+            </div>
+          </Field>
+
+          <button onClick={submit} disabled={!name.trim()}
+            className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg disabled:opacity-40"
+            style={{ background: `linear-gradient(135deg, ${color}, #FFD600)` }}>
+            {isEdit ? 'SALVAR' : 'CRIAR MEMBRO'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============== MODAL: PRÊMIO ==============
+function RewardModal({ reward, onClose, onSave }) {
+  const isEdit = !!reward;
+  const [name, setName] = useState(reward?.name || '');
+  const [description, setDescription] = useState(reward?.description || '');
+  const [icon, setIcon] = useState(reward?.icon || '🎁');
+  const [position, setPosition] = useState(reward?.position || 1);
+  const [targetMonth, setTargetMonth] = useState(reward?.monthKey || monthKey());
+
+  const REWARD_ICONS = ['🎁', '🏆', '🥇', '🎮', '🍕', '🍦', '🎬', '🎢', '🛍️', '💰', '👑', '⭐', '🎂', '🍫', '📱', '🚲', '🎨', '🎸', '⚽', '🎯'];
+
+  const submit = () => {
+    if (!name.trim()) return;
+    onSave({
+      id: reward?.id,
+      name: name.trim(),
+      description: description.trim(),
+      icon,
+      position: Math.max(1, position),
+      monthKey: targetMonth,
+      awarded: reward?.awarded || false,
+      awardedTo: reward?.awardedTo || null,
+      awardedAt: reward?.awardedAt || null,
+    });
+  };
+
+  const monthOptions = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + i);
+    monthOptions.push({
+      key: monthKey(d),
+      label: d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase(),
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+        style={{ borderColor: '#FFD600', boxShadow: '0 0 50px rgba(255,214,0,0.4)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="bungee text-lg sm:text-2xl text-white neon-text" style={{ color: '#FFD600' }}>
+            {isEdit ? 'EDITAR PRÊMIO' : 'NOVO PRÊMIO'}
+          </h2>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="text-center">
+            <div className="text-6xl sm:text-7xl mb-2">{icon}</div>
+          </div>
+
+          <Field label="Nome do prêmio">
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Ex: Sorvete grande"
+              className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-yellow-400"
+              autoFocus />
+          </Field>
+
+          <Field label="Descrição (opcional)">
+            <input type="text" value={description} onChange={e => setDescription(e.target.value)}
+              placeholder="Ex: Pode escolher qualquer sabor"
+              className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-yellow-400" />
+          </Field>
+
+          <Field label="Ícone">
+            <div className="grid grid-cols-6 sm:grid-cols-10 gap-2 bg-black/30 p-3 rounded-xl">
+              {REWARD_ICONS.map(i => (
+                <button key={i} onClick={() => setIcon(i)}
+                  className={`text-xl sm:text-2xl p-2 rounded-lg transition-all ${icon === i ? 'bg-yellow-400/20 scale-110 ring-2 ring-yellow-400' : 'hover:bg-white/5'}`}>
+                  {i}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Posição no ranking">
+            <div className="grid grid-cols-5 gap-2">
+              {[1, 2, 3, 4, 5].map(p => (
+                <button key={p} onClick={() => setPosition(p)}
+                  className={`p-3 rounded-xl border-2 font-bold transition-all ${position === p ? 'border-yellow-400 bg-yellow-400/20 text-yellow-300' : 'border-white/10 text-white/60'}`}>
+                  {p}º
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-white/40 mt-2 italic">Ganha quem terminar o mês nessa posição</p>
+          </Field>
+
+          <Field label="Mês de competição">
+            <select value={targetMonth} onChange={e => setTargetMonth(e.target.value)}
+              className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-yellow-400">
+              {monthOptions.map(m => (
+                <option key={m.key} value={m.key} className="bg-[#1a0a2e]">{m.label}</option>
+              ))}
+            </select>
+          </Field>
+
+          <button onClick={submit} disabled={!name.trim()}
+            className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, #FFD600, #FF3D9A)', boxShadow: '0 0 20px rgba(255,214,0,0.4)' }}>
+            {isEdit ? 'SALVAR' : 'CRIAR PRÊMIO'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// MÓDULO DE MESADAS
+// ============================================================
+
+const CURRENCY = 'R$';
+const fmt = (v) => `${CURRENCY} ${Number(v || 0).toFixed(2).replace('.', ',')}`;
+
+// Meses para o histórico (12 meses atrás até hoje)
+function getMonthRange() {
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    months.push({
+      key: monthKey(d),
+      label: d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+      labelShort: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+    });
+  }
+  return months;
+}
+
+// ============== ALLOWANCE VIEW ==============
+function AllowanceView({ players, allowances, allowancePayments, getAllowanceConfig, calcBonus, calcTotal, getPayment, getPointsForMonth, onConfigAllowance, onRemoveAllowance, onRegisterPayment, onRemovePayment }) {
+  const [tab, setTab] = useState('overview');
+  const [historyPlayer, setHistoryPlayer] = useState(null);
+  const [showAddPicker, setShowAddPicker] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null); // player object
+  const currentMk = monthKey();
+  const months = getMonthRange();
+  const currentMonthLabel = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+
+  const configuredPlayers = players.filter(p => getAllowanceConfig(p.id));
+  const unconfiguredPlayers = players.filter(p => !getAllowanceConfig(p.id));
+
+  const totalPlanned = configuredPlayers.reduce((s, p) => s + calcTotal(p.id, currentMk), 0);
+  const totalPaid = configuredPlayers.reduce((s, p) => {
+    const pay = getPayment(p.id, currentMk);
+    return s + (pay?.status === 'paid' ? pay.totalPaid : 0);
+  }, 0);
+  const totalPending = totalPlanned - totalPaid;
+
+  React.useEffect(() => {
+    if (!historyPlayer && configuredPlayers.length > 0) {
+      setHistoryPlayer(configuredPlayers[0].id);
+    }
+  }, [configuredPlayers.length]);
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="bungee text-xl sm:text-2xl md:text-3xl text-white neon-text" style={{ color: '#76FF03' }}>
+            💰 MESADAS
+          </h2>
+          <p className="text-white/60 text-xs sm:text-sm mt-1">Controle com bônus por desempenho</p>
+        </div>
+        <div className="flex gap-2 items-center flex-wrap">
+          {/* Tabs */}
+          <div className="flex gap-1.5 bg-black/40 border border-white/10 rounded-xl p-1">
+            <button onClick={() => { setTab('overview'); playSound('click'); }}
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${tab === 'overview' ? 'text-black' : 'text-white/60'}`}
+              style={tab === 'overview' ? { background: 'linear-gradient(135deg, #76FF03, #00E5FF)' } : {}}>
+              Geral
+            </button>
+            <button onClick={() => { setTab('history'); playSound('click'); }}
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${tab === 'history' ? 'text-black' : 'text-white/60'}`}
+              style={tab === 'history' ? { background: 'linear-gradient(135deg, #76FF03, #00E5FF)' } : {}}>
+              Histórico
+            </button>
+          </div>
+          {/* Botão de adicionar */}
+          {unconfiguredPlayers.length > 0 && (
+            <button
+              onClick={() => { setShowAddPicker(true); playSound('click'); }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-black text-sm"
+              style={{ background: 'linear-gradient(135deg, #76FF03, #00E5FF)', boxShadow: '0 0 20px rgba(118,255,3,0.4)' }}>
+              <Plus size={16} strokeWidth={3} />
+              Adicionar mesada
+            </button>
+          )}
+        </div>
+      </div>
+
+      {tab === 'overview' && (
+        <>
+          {configuredPlayers.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+                <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-widest mb-1">Planejado</div>
+                <div className="bungee text-base sm:text-2xl" style={{ color: '#76FF03' }}>{fmt(totalPlanned)}</div>
+              </div>
+              <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+                <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-widest mb-1">Pago</div>
+                <div className="bungee text-base sm:text-2xl text-white">{fmt(totalPaid)}</div>
+              </div>
+              <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+                <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-widest mb-1">A pagar</div>
+                <div className="bungee text-base sm:text-2xl" style={{ color: totalPending > 0 ? '#FFD600' : '#76FF03' }}>
+                  {fmt(totalPending)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {configuredPlayers.length === 0 && (
+            <div className="text-center py-14 sm:py-20">
+              <div className="text-6xl mb-4">💰</div>
+              <h3 className="bungee text-xl text-white mb-2">Nenhuma mesada configurada</h3>
+              <p className="text-white/50 text-sm max-w-xs mx-auto">
+                Clique em <strong className="text-green-300">Adicionar mesada</strong> para começar.
+              </p>
+            </div>
+          )}
+
+          {configuredPlayers.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="bungee text-sm sm:text-base text-white/70 flex items-center gap-2 uppercase tracking-widest">
+                <span style={{ color: '#76FF03' }}>●</span>
+                {currentMonthLabel}
+              </h3>
+
+              {configuredPlayers.map(player => {
+                const config = getAllowanceConfig(player.id);
+                const pts = getPointsForMonth(player.id, currentMk);
+                const bonus = calcBonus(player.id, currentMk);
+                const total = calcTotal(player.id, currentMk);
+                const payment = getPayment(player.id, currentMk);
+                const isPaid = payment?.status === 'paid';
+                const isPlanned = payment?.status === 'planned';
+                const activePct = config.bonusTiers?.length
+                  ? Math.max(0, ...config.bonusTiers.filter(t => pts >= t.minPoints).map(t => t.pct))
+                  : 0;
+
+                return (
+                  <div key={player.id}
+                    className="bg-black/50 backdrop-blur-sm border-2 rounded-2xl p-4 sm:p-5"
+                    style={{ borderColor: isPaid ? '#76FF03' : player.color + '60', boxShadow: `0 0 20px ${player.color}20` }}>
+
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="text-3xl sm:text-4xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 10px ${player.color})` }}>
+                        {player.emoji}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="bungee text-base sm:text-xl text-white truncate">{player.name}</div>
+                        <div className="text-[10px] sm:text-xs text-white/50 mt-0.5">{pts} pontos este mês</div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {isPaid && (
+                          <span className="flex items-center gap-1 bg-green-500/20 text-green-300 px-2 py-1 rounded-full text-[10px] font-bold">
+                            <Check size={10} strokeWidth={3} />PAGO
+                          </span>
+                        )}
+                        {isPlanned && !isPaid && (
+                          <span className="flex items-center gap-1 bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full text-[10px] font-bold">
+                            <Clock size={10} />AGENDADO
+                          </span>
+                        )}
+                        <button
+                          onClick={() => { onConfigAllowance(player.id); playSound('click'); }}
+                          className="text-white/40 hover:text-cyan-400 p-1.5 rounded-lg hover:bg-cyan-500/10 transition-colors"
+                          title="Editar mesada">
+                          <Edit2 size={15} />
+                        </button>
+                        <button
+                          onClick={() => { setConfirmDelete(player); playSound('click'); }}
+                          className="text-white/40 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
+                          title="Excluir mesada">
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      <div className="bg-white/5 rounded-xl p-2 sm:p-3 text-center">
+                        <div className="text-[9px] sm:text-[10px] text-white/50 uppercase tracking-widest mb-1">Base</div>
+                        <div className="bungee text-sm sm:text-base text-white">{fmt(config.baseAmount)}</div>
+                      </div>
+                      <div className="rounded-xl p-2 sm:p-3 text-center"
+                        style={{
+                          background: bonus > 0 ? 'rgba(118,255,3,0.08)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${bonus > 0 ? '#76FF0360' : 'rgba(255,255,255,0.05)'}`,
+                        }}>
+                        <div className="text-[9px] sm:text-[10px] text-white/50 uppercase tracking-widest mb-1">Bônus</div>
+                        <div className="bungee text-sm sm:text-base" style={{ color: bonus > 0 ? '#76FF03' : 'rgba(255,255,255,0.25)' }}>
+                          {bonus > 0 ? `+${fmt(bonus)}` : '--'}
+                        </div>
+                        {activePct > 0 && <div className="text-[8px] text-green-400 mt-0.5">+{activePct}%</div>}
+                      </div>
+                      <div className="rounded-xl p-2 sm:p-3 text-center"
+                        style={{ background: `${player.color}15`, border: `2px solid ${player.color}50` }}>
+                        <div className="text-[9px] sm:text-[10px] text-white/50 uppercase tracking-widest mb-1">Total</div>
+                        <div className="bungee text-sm sm:text-base neon-text" style={{ color: player.color }}>{fmt(total)}</div>
+                      </div>
+                    </div>
+
+                    {config.bonusTiers?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        {[...config.bonusTiers].sort((a, b) => a.minPoints - b.minPoints).map((tier, i) => {
+                          const reached = pts >= tier.minPoints;
+                          return (
+                            <div key={i}
+                              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] sm:text-xs font-bold border"
+                              style={{
+                                background: reached ? '#76FF0318' : 'rgba(255,255,255,0.03)',
+                                borderColor: reached ? '#76FF03' : 'rgba(255,255,255,0.1)',
+                                color: reached ? '#76FF03' : 'rgba(255,255,255,0.4)',
+                              }}>
+                              {reached ? <Check size={9} strokeWidth={3} /> : <span className="w-2 h-2 rounded-full border border-current inline-block flex-shrink-0" />}
+                              {tier.minPoints} pts → +{tier.pct}%
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {!isPaid ? (
+                      <button
+                        onClick={() => { onRegisterPayment({ playerId: player.id, monthKey: currentMk }); playSound('click'); }}
+                        className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2"
+                        style={{ background: `linear-gradient(135deg, ${player.color}, ${player.color}99)`, color: 'black' }}>
+                        <BadgeCheck size={16} strokeWidth={3} />
+                        {isPlanned ? 'Confirmar Pagamento' : 'Registrar Pagamento'}
+                      </button>
+                    ) : (
+                      <div className="w-full bg-green-500/10 border border-green-500/30 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
+                        <div className="text-xs text-green-300">
+                          <span className="font-bold">Pago em {new Date(payment.paidAt).toLocaleDateString('pt-BR')}</span>
+                          {payment.note && <span className="text-white/50 ml-2">· {payment.note}</span>}
+                        </div>
+                        <button
+                          onClick={() => { onRegisterPayment({ playerId: player.id, monthKey: currentMk }); playSound('click'); }}
+                          className="text-white/40 hover:text-white p-1 rounded transition-colors flex-shrink-0"
+                          title="Editar pagamento">
+                          <Edit2 size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'history' && (
+        <AllowanceHistory
+          players={players}
+          configuredPlayers={configuredPlayers}
+          allowancePayments={allowancePayments}
+          getAllowanceConfig={getAllowanceConfig}
+          calcBonus={calcBonus}
+          calcTotal={calcTotal}
+          getPayment={getPayment}
+          getPointsForMonth={getPointsForMonth}
+          onRegisterPayment={onRegisterPayment}
+          onRemovePayment={onRemovePayment}
+          months={months}
+          historyPlayer={historyPlayer}
+          setHistoryPlayer={setHistoryPlayer}
+        />
+      )}
+
+      {/* MODAL: Picker de quem vai receber mesada */}
+      {showAddPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          onClick={() => setShowAddPicker(false)}>
+          <div
+            className="w-full max-w-sm rounded-3xl p-6"
+            style={{ background: '#0f1a10', border: '2px solid #76FF03', boxShadow: '0 0 60px rgba(118,255,3,0.35)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="bungee text-xl text-white" style={{ color: '#76FF03' }}>NOVA MESADA</h3>
+                <p className="text-white/50 text-xs mt-0.5">Quem vai receber?</p>
+              </div>
+              <button onClick={() => setShowAddPicker(false)} className="text-white/40 hover:text-white p-1">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {unconfiguredPlayers.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { setShowAddPicker(false); onConfigAllowance(p.id); playSound('click'); }}
+                  className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl border-2 transition-all hover:scale-[1.02] active:scale-95 text-left"
+                  style={{ borderColor: p.color + '60', background: p.color + '12' }}>
+                  <span className="text-3xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 8px ${p.color})` }}>{p.emoji}</span>
+                  <span className="bungee text-base text-white">{p.name}</span>
+                  <Plus size={18} className="ml-auto flex-shrink-0" style={{ color: p.color }} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Confirmação de exclusão inline (sem confirm()) */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+          onClick={() => setConfirmDelete(null)}>
+          <div
+            className="w-full max-w-sm rounded-3xl p-6"
+            style={{ background: '#1a0808', border: '2px solid #FF5252', boxShadow: '0 0 60px rgba(255,82,82,0.35)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-6">
+              <div className="text-5xl mb-3" style={{ filter: `drop-shadow(0 0 12px ${confirmDelete.color})` }}>
+                {confirmDelete.emoji}
+              </div>
+              <h3 className="bungee text-xl text-white mb-1">Excluir mesada?</h3>
+              <p className="text-white/60 text-sm">
+                A mesada de <strong className="text-white">{confirmDelete.name}</strong> e todo o histórico de pagamentos serão apagados permanentemente.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="py-3 rounded-xl font-bold text-sm text-white/70 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  onRemoveAllowance(confirmDelete.id);
+                  setConfirmDelete(null);
+                  playSound('click');
+                }}
+                className="py-3 rounded-xl font-bold text-sm text-white"
+                style={{ background: 'linear-gradient(135deg, #FF5252, #FF1744)', boxShadow: '0 0 20px rgba(255,82,82,0.4)' }}>
+                Sim, excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AllowanceHistory({ players, configuredPlayers, allowancePayments, getAllowanceConfig, calcBonus, calcTotal, getPayment, getPointsForMonth, onRegisterPayment, onRemovePayment, months, historyPlayer, setHistoryPlayer }) {
+  const player = players.find(p => p.id === historyPlayer);
+  const config = getAllowanceConfig(historyPlayer);
+
+  const totalEarned = allowancePayments
+    .filter(p => p.playerId === historyPlayer && p.status === 'paid')
+    .reduce((s, p) => s + (p.totalPaid || 0), 0);
+  const totalBonus = allowancePayments
+    .filter(p => p.playerId === historyPlayer && p.status === 'paid')
+    .reduce((s, p) => s + (p.bonusPaid || 0), 0);
+
+  if (configuredPlayers.length === 0) {
+    return (
+      <div className="text-center py-14">
+        <div className="text-5xl mb-4">📋</div>
+        <p className="text-white/50 text-sm">Nenhuma mesada configurada ainda.</p>
+        <p className="text-white/40 text-xs mt-1">Configure uma mesada na aba <strong className="text-green-300">Geral</strong> para ver o histórico.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Seletor — somente quem tem mesada */}
+      <div className="flex gap-2 overflow-x-auto scrollbar-custom pb-1">
+        {configuredPlayers.map(p => (
+          <button key={p.id} onClick={() => { setHistoryPlayer(p.id); playSound('click'); }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all flex-shrink-0 ${historyPlayer === p.id ? 'text-black' : 'bg-black/40 border border-white/10 text-white/60'}`}
+            style={historyPlayer === p.id ? { background: p.color, boxShadow: `0 0 15px ${p.color}80` } : {}}>
+            <span className="text-lg">{p.emoji}</span>
+            <span>{p.name}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Stats acumulados */}
+      {player && historyPlayer && (
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+            <div className="text-[9px] sm:text-[10px] text-white/50 uppercase tracking-widest mb-1">Total recebido</div>
+            <div className="bungee text-base sm:text-xl" style={{ color: player.color }}>{fmt(totalEarned)}</div>
+          </div>
+          <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+            <div className="text-[9px] sm:text-[10px] text-white/50 uppercase tracking-widest mb-1">Bônus ganhos</div>
+            <div className="bungee text-base sm:text-xl text-green-300">{fmt(totalBonus)}</div>
+          </div>
+          <div className="bg-black/50 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+            <div className="text-[9px] sm:text-[10px] text-white/50 uppercase tracking-widest mb-1">Meses pagos</div>
+            <div className="bungee text-base sm:text-xl text-white">
+              {allowancePayments.filter(p => p.playerId === historyPlayer && p.status === 'paid').length}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabela de meses */}
+      {!historyPlayer || !config ? (
+        <div className="text-center py-10 text-white/40 italic text-sm">Selecione um membro acima para ver o histórico.</div>
+      ) : (
+        <div className="space-y-2">
+          {[...months].reverse().map(m => {
+            const pts = getPointsForMonth(historyPlayer, m.key);
+            const total = calcTotal(historyPlayer, m.key);
+            const bonus = calcBonus(historyPlayer, m.key);
+            const payment = getPayment(historyPlayer, m.key);
+            const isPaid = payment?.status === 'paid';
+            const isPlanned = payment?.status === 'planned';
+            const isCurrent = m.key === monthKey();
+
+            return (
+              <div key={m.key} className="bg-black/50 border-2 rounded-2xl p-3 sm:p-4"
+                style={{ borderColor: isPaid ? '#76FF0350' : isCurrent ? (player?.color + '60') : 'rgba(255,255,255,0.08)' }}>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-white text-sm capitalize">{m.label}</span>
+                      {isCurrent && <span className="text-[10px] bg-yellow-400/20 text-yellow-300 px-1.5 py-0.5 rounded-full font-bold">ATUAL</span>}
+                      {isPaid && <span className="text-[10px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5"><Check size={9} strokeWidth={3} />PAGO</span>}
+                      {isPlanned && !isPaid && <span className="text-[10px] bg-yellow-500/20 text-yellow-300 px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5"><Clock size={9} />AGENDADO</span>}
+                    </div>
+                    <div className="text-[10px] text-white/50 mt-0.5">{pts} pontos</div>
+                  </div>
+
+                  <div className="flex items-center gap-3 flex-shrink-0 text-right">
+                    {bonus > 0 && (
+                      <div>
+                        <div className="text-[9px] text-white/40 uppercase">bônus</div>
+                        <div className="text-xs font-bold text-green-300">+{fmt(bonus)}</div>
+                      </div>
+                    )}
+                    <div>
+                      <div className="text-[9px] text-white/40 uppercase">total</div>
+                      <div className="bungee text-sm sm:text-base" style={{ color: isPaid ? '#76FF03' : 'white' }}>{fmt(total)}</div>
+                    </div>
+                    {!isPaid ? (
+                      <button
+                        onClick={() => { onRegisterPayment({ playerId: historyPlayer, monthKey: m.key }); playSound('click'); }}
+                        className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg font-bold text-[10px] sm:text-xs transition-all"
+                        style={{ background: player?.color + '30', color: player?.color, border: `1px solid ${player?.color}60` }}>
+                        <BadgeCheck size={12} />
+                        {isPlanned ? 'Confirmar' : 'Registrar'}
+                      </button>
+                    ) : payment && (
+                      <button
+                        onClick={() => { if (confirm('Remover este registro de pagamento?')) onRemovePayment(payment.id); }}
+                        className="text-red-400/60 hover:text-red-400 p-1 rounded transition-colors"
+                        title="Remover">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {payment?.note && (
+                  <div className="mt-2 text-xs text-white/50 bg-white/5 rounded-lg px-3 py-1.5 italic">
+                    {payment.note}
+                    {isPaid && <span className="text-white/30 ml-2">· {new Date(payment.paidAt).toLocaleDateString('pt-BR')}</span>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============== MODAL: CONFIGURAR MESADA ==============
+function AllowanceConfigModal({ playerId, player, config, onClose, onSave }) {
+  const [baseAmount, setBaseAmount] = useState(config?.baseAmount || '');
+  const [tiers, setTiers] = useState(
+    config?.bonusTiers?.length ? config.bonusTiers : [{ minPoints: 300, pct: 20 }, { minPoints: 600, pct: 40 }]
+  );
+
+  const addTier = () => setTiers([...tiers, { minPoints: 0, pct: 10 }]);
+  const removeTier = (i) => setTiers(tiers.filter((_, idx) => idx !== i));
+  const updateTier = (i, field, value) => {
+    const updated = [...tiers];
+    updated[i] = { ...updated[i], [field]: Number(value) };
+    setTiers(updated);
+  };
+
+  const preview = (pts) => {
+    const base = Number(baseAmount) || 0;
+    let pct = 0;
+    tiers.forEach(t => { if (pts >= t.minPoints) pct = Math.max(pct, t.pct); });
+    const bonus = Math.round(base * pct / 100);
+    return { bonus, total: base + bonus, pct };
+  };
+
+  const submit = () => {
+    if (!baseAmount || Number(baseAmount) <= 0) { alert('Defina um valor base para a mesada.'); return; }
+    onSave({
+      baseAmount: Number(baseAmount),
+      bonusTiers: tiers.filter(t => t.minPoints > 0 && t.pct > 0).sort((a, b) => a.minPoints - b.minPoints),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#0a1a0a] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+        style={{ borderColor: '#76FF03', boxShadow: '0 0 50px rgba(118,255,3,0.3)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <span className="text-4xl" style={{ filter: `drop-shadow(0 0 10px ${player?.color})` }}>{player?.emoji}</span>
+            <div>
+              <h2 className="bungee text-lg sm:text-2xl text-white" style={{ color: '#76FF03' }}>MESADA</h2>
+              <div className="text-white/60 text-sm">{player?.name}</div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
+        </div>
+
+        <div className="space-y-5">
+          <div>
+            <label className="block text-[10px] sm:text-xs uppercase tracking-widest text-white/60 mb-2 font-bold">Valor base mensal (R$)</label>
+            <input type="number" min="0" step="0.01" value={baseAmount}
+              onChange={e => setBaseAmount(e.target.value)}
+              placeholder="Ex: 50.00"
+              className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-green-400 text-lg font-bold"
+              autoFocus />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[10px] sm:text-xs uppercase tracking-widest text-white/60 font-bold">Metas de bônus (por pontos)</label>
+              <button onClick={addTier} className="text-green-400 hover:text-green-300 flex items-center gap-1 text-xs font-bold">
+                <Plus size={14} />Adicionar
+              </button>
+            </div>
+            <div className="space-y-2">
+              {tiers.map((tier, i) => (
+                <div key={i} className="flex items-center gap-2 bg-black/30 rounded-xl p-3">
+                  <div className="flex-1 grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-[9px] text-white/40 uppercase mb-1">Mín. pontos</div>
+                      <input type="number" min="0" value={tier.minPoints}
+                        onChange={e => updateTier(i, 'minPoints', e.target.value)}
+                        className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-green-400" />
+                    </div>
+                    <div>
+                      <div className="text-[9px] text-white/40 uppercase mb-1">Bônus (%)</div>
+                      <input type="number" min="0" max="200" value={tier.pct}
+                        onChange={e => updateTier(i, 'pct', e.target.value)}
+                        className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-green-400" />
+                    </div>
+                  </div>
+                  <button onClick={() => removeTier(i)} className="text-red-400/60 hover:text-red-400 p-1">
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              {tiers.length === 0 && (
+                <div className="text-white/30 italic text-xs text-center py-3">Sem metas de bônus — mesada fixa.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Preview */}
+          {Number(baseAmount) > 0 && (
+            <div className="bg-black/40 border border-green-500/20 rounded-2xl p-4">
+              <div className="text-[10px] uppercase tracking-widest text-white/50 mb-3 font-bold">Preview de cenários</div>
+              <div className="space-y-2">
+                {[0, ...[...tiers].sort((a, b) => a.minPoints - b.minPoints).map(t => t.minPoints)].map(pts => {
+                  const { bonus, total, pct } = preview(pts);
+                  return (
+                    <div key={pts} className="flex items-center justify-between text-sm">
+                      <span className="text-white/60">{pts} pontos</span>
+                      <div className="flex items-center gap-3">
+                        {bonus > 0 && <span className="text-green-300 text-xs">+{fmt(bonus)} ({pct}%)</span>}
+                        <span className="bungee text-white">{fmt(total)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <button onClick={submit}
+            className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg"
+            style={{ background: 'linear-gradient(135deg, #76FF03, #00E5FF)', boxShadow: '0 0 20px rgba(118,255,3,0.4)' }}>
+            SALVAR CONFIGURAÇÃO
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============== MODAL: REGISTRAR PAGAMENTO ==============
+function PaymentModal({ data, player, existingPayment, calcTotal, calcBonus, getAllowanceConfig, onClose, onSave }) {
+  const { playerId, monthKey: mKey } = data;
+  const config = getAllowanceConfig(playerId);
+  const baseAmount = config?.baseAmount || 0;
+  const bonus = calcBonus(playerId, mKey);
+  const suggested = calcTotal(playerId, mKey);
+
+  const [status, setStatus] = useState(existingPayment?.status || 'paid');
+  const [totalPaid, setTotalPaid] = useState(existingPayment?.totalPaid ?? suggested);
+  const [note, setNote] = useState(existingPayment?.note || '');
+  const [paidAt, setPaidAt] = useState(
+    existingPayment?.paidAt
+      ? new Date(existingPayment.paidAt).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0]
+  );
+
+  const monthLabel = (() => {
+    const [y, m] = mKey.split('-');
+    return new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  })();
+
+  const submit = () => {
+    onSave({
+      id: existingPayment?.id,
+      playerId,
+      monthKey: mKey,
+      basePaid: baseAmount,
+      bonusPaid: bonus,
+      totalPaid: Number(totalPaid),
+      status,
+      note: note.trim(),
+      paidAt: status === 'paid' ? new Date(paidAt).getTime() : null,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#0a1a0a] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-md my-4 sm:my-8"
+        style={{ borderColor: player?.color || '#76FF03', boxShadow: `0 0 50px ${player?.color || '#76FF03'}40` }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="bungee text-lg sm:text-2xl text-white">PAGAMENTO</h2>
+            <div className="text-white/60 text-sm capitalize">{player?.emoji} {player?.name} · {monthLabel}</div>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white"><X size={22} /></button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Resumo calculado */}
+          <div className="bg-black/40 border border-white/10 rounded-xl p-3 sm:p-4">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="text-white/60">Mesada base</span>
+              <span className="text-white font-bold">{fmt(baseAmount)}</span>
+            </div>
+            {bonus > 0 && (
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="text-white/60">Bônus por pontos</span>
+                <span className="text-green-300 font-bold">+{fmt(bonus)}</span>
+              </div>
+            )}
+            <div className="h-px bg-white/10 my-2" />
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-white">Sugerido</span>
+              <span className="bungee text-xl" style={{ color: player?.color }}>{fmt(suggested)}</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] sm:text-xs uppercase tracking-widest text-white/60 mb-2 font-bold">Status</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setStatus('planned')}
+                className={`py-2.5 rounded-xl font-bold text-sm transition-all border-2 ${status === 'planned' ? 'border-yellow-400 bg-yellow-400/10 text-yellow-300' : 'border-white/10 text-white/50'}`}>
+                📅 Agendado
+              </button>
+              <button onClick={() => setStatus('paid')}
+                className={`py-2.5 rounded-xl font-bold text-sm transition-all border-2 ${status === 'paid' ? 'border-green-400 bg-green-400/10 text-green-300' : 'border-white/10 text-white/50'}`}>
+                ✅ Pago
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] sm:text-xs uppercase tracking-widest text-white/60 mb-2 font-bold">Valor {status === 'paid' ? 'pago' : 'planejado'} (R$)</label>
+            <input type="number" min="0" step="0.01" value={totalPaid}
+              onChange={e => setTotalPaid(e.target.value)}
+              className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-green-400" />
+          </div>
+
+          {status === 'paid' && (
+            <div>
+              <label className="block text-[10px] sm:text-xs uppercase tracking-widest text-white/60 mb-2 font-bold">Data do pagamento</label>
+              <input type="date" value={paidAt} onChange={e => setPaidAt(e.target.value)}
+                className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-green-400" />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[10px] sm:text-xs uppercase tracking-widest text-white/60 mb-2 font-bold">Observação (opcional)</label>
+            <input type="text" value={note} onChange={e => setNote(e.target.value)}
+              placeholder="Ex: Pago em dinheiro"
+              className="w-full bg-black/50 border-2 border-white/10 rounded-xl px-4 py-3 text-white focus:border-green-400" />
+          </div>
+
+          <button onClick={submit}
+            className="w-full py-3 sm:py-4 rounded-xl font-bold text-black bungee text-base sm:text-lg"
+            style={{ background: `linear-gradient(135deg, ${player?.color || '#76FF03'}, #76FF03)`, boxShadow: '0 0 20px rgba(118,255,3,0.4)' }}>
+            {existingPayment ? 'ATUALIZAR' : 'SALVAR'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+    // ================================================================
+    // RENDER
+    // ================================================================
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(AppWrapper));
+
+  </script>
+</body>
+</html>
