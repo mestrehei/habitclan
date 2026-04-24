@@ -2068,8 +2068,8 @@ function TaskModal({ task, players, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
         style={{ borderColor: '#FF3D9A', boxShadow: '0 0 50px rgba(255,61,154,0.4)' }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -2263,8 +2263,8 @@ function Field({ label, children }) {
 // ============== MODAL: CONFIGURAÇÕES ==============
 function SettingsModal({ players, onClose, onAddPlayer, onEditPlayer, onRemovePlayer }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
         style={{ borderColor: '#00E5FF', boxShadow: '0 0 50px rgba(0,229,255,0.4)' }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -2323,8 +2323,8 @@ function PlayerModal({ player, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
         style={{ borderColor: color, boxShadow: `0 0 50px ${color}60` }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -2413,8 +2413,8 @@ function RewardModal({ reward, onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#1a0a2e] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
         style={{ borderColor: '#FFD600', boxShadow: '0 0 50px rgba(255,214,0,0.4)' }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -3130,8 +3130,8 @@ function AllowanceConfigModal({ playerId, player, config, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#0a1a0a] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg my-4 sm:my-8"
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#0a1a0a] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-lg mx-auto my-4 sm:my-6"
         style={{ borderColor: '#76FF03', boxShadow: '0 0 50px rgba(118,255,3,0.3)' }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
@@ -3259,8 +3259,8 @@ function PaymentModal({ data, player, existingPayment, calcTotal, calcBonus, get
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto" onClick={onClose}>
-      <div className="bg-gradient-to-br from-[#0a1a0a] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-md my-4 sm:my-8"
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-gradient-to-br from-[#0a1a0a] to-[#0A0612] border-2 rounded-2xl sm:rounded-3xl p-4 sm:p-6 w-full max-w-md mx-auto my-4 sm:my-6"
         style={{ borderColor: player?.color || '#76FF03', boxShadow: `0 0 50px ${player?.color || '#76FF03'}40` }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
