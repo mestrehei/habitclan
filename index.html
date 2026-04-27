@@ -9,29 +9,18 @@
   <title>HabitClan</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>" />
 
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- React -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-
-  <!-- Babel para JSX no browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase SDK com Authentication -->
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
     import { getDatabase, ref, onValue, set, get } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+    import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
-    // ================================================================
-    // 🔧 CONFIGURAÇÃO DO FIREBASE
-    // Substitua os valores abaixo com os dados do SEU projeto Firebase
-    // Instruções em: LEIA-ME.txt
-    // ================================================================
     const firebaseConfig = {
       apiKey: "AIzaSyDmOwB_QTt7yMPIATGBDWZm_PimB_OK5kE",
       authDomain: "habitclan-48f90.firebaseapp.com",
@@ -43,9 +32,19 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const db  = getDatabase(app);
+    const auth = getAuth(app);
 
-    // Expor funções para o app React acessar
+    // Faz login anônimo assim que o app abre (sem precisar de email/senha)
+    // O UID anônimo fica salvo no dispositivo automaticamente
+    signInAnonymously(auth).catch(console.error);
+
+    onAuthStateChanged(auth, (user) => {
+      window._authUser = user;
+      window._authReady = true;
+      window.dispatchEvent(new CustomEvent('authReady', { detail: user }));
+    });
+
     window._firebase = {
       async read(path) {
         const snap = await get(ref(db, path));
@@ -57,7 +56,14 @@
       subscribe(path, callback) {
         const r = ref(db, path);
         onValue(r, snap => callback(snap.exists() ? snap.val() : null));
-        return () => {}; // cleanup placeholder
+      },
+      // Escrever dado de autenticação de um player (PIN hash)
+      async writePlayerAuth(playerId, data) {
+        await set(ref(db, `habitclan_auth/${playerId}`), data);
+      },
+      async readPlayerAuth(playerId) {
+        const snap = await get(ref(db, `habitclan_auth/${playerId}`));
+        return snap.exists() ? snap.val() : null;
       }
     };
 
@@ -69,7 +75,6 @@
     * { box-sizing: border-box; }
     body { margin: 0; background: #0A0612; -webkit-font-smoothing: antialiased; }
     #root { min-height: 100vh; }
-    /* Prevent iOS bounce */
     html, body { overflow-x: hidden; }
   </style>
 </head>
@@ -80,13 +85,12 @@
     const { useState, useEffect, useRef, useCallback } = React;
 
     // ================================================================
-    // 🔒 SENHA DE ACESSO FAMILIAR
-    // Troque para a senha que quiser usar
+    // CÓDIGO FAMILIAR — só quem tem esse código pode cadastrar novo PIN
     // ================================================================
-    const FAMILY_PASSWORD = "Hecr1202";
+    const FAMILY_CODE = "Hecr1202";
 
     // ================================================================
-    // Ícones do Lucide (carregados via CDN)
+    // Ícones Lucide
     // ================================================================
     const LucideIcon = ({ name, size = 16, className = '', style = {} }) => {
       const ref = useRef(null);
@@ -105,8 +109,6 @@
       }, [name, size, className]);
       return React.createElement('span', { ref, style: { display: 'inline-flex', alignItems: 'center', ...style } });
     };
-
-    // Aliases para compatibilidade com o código original
     const Plus = (p) => React.createElement(LucideIcon, { name: 'Plus', ...p });
     const Trophy = (p) => React.createElement(LucideIcon, { name: 'Trophy', ...p });
     const Flame = (p) => React.createElement(LucideIcon, { name: 'Flame', ...p });
@@ -131,13 +133,15 @@
     const BadgeCheck = (p) => React.createElement(LucideIcon, { name: 'BadgeCheck', ...p });
     const Clock = (p) => React.createElement(LucideIcon, { name: 'Clock', ...p });
     const Coins = (p) => React.createElement(LucideIcon, { name: 'Coins', ...p });
+    const LogOut = (p) => React.createElement(LucideIcon, { name: 'LogOut', ...p });
+    const ShieldCheck = (p) => React.createElement(LucideIcon, { name: 'ShieldCheck', ...p });
+    const KeyRound = (p) => React.createElement(LucideIcon, { name: 'KeyRound', ...p });
+    const ChevronDown = (p) => React.createElement(LucideIcon, { name: 'ChevronDown', ...p });
 
     // ================================================================
-    // FIREBASE STORAGE ADAPTER
-    // Substitui window.storage do Claude pelo Firebase
+    // Firebase Storage Adapter
     // ================================================================
-    const DB_ROOT = 'habitclan'; // pasta raiz no banco
-
+    const DB_ROOT = 'habitclan';
     const firebaseStorage = {
       async get(key) {
         if (!window._firebase) return null;
@@ -149,140 +153,480 @@
       async set(key, value) {
         if (!window._firebase) return null;
         try {
-          // Firebase não aceita strings com JSON — guardamos como objeto quando possível
           let toStore = value;
-          try { toStore = JSON.parse(value); } catch (e) { /* mantém string */ }
+          try { toStore = JSON.parse(value); } catch (e) {}
           await window._firebase.write(`${DB_ROOT}/${key}`, toStore);
           return { value };
         } catch (e) { return null; }
       }
     };
+    window.storage = firebaseStorage;
 
-    // Tela de Login
-    function LoginScreen({ onLogin }) {
-      const [password, setPassword] = useState('');
-      const [error, setError] = useState(false);
-      const [shake, setShake] = useState(false);
+    // ================================================================
+    // PIN UTILS — hash simples do PIN para não salvar em texto puro
+    // ================================================================
+    async function hashPin(pin) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(pin + 'habitclan_salt_2024');
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
 
-      const submit = () => {
-        if (password === FAMILY_PASSWORD) {
-          localStorage.setItem('hc_auth', btoa(FAMILY_PASSWORD));
-          onLogin();
-        } else {
-          setError(true);
-          setShake(true);
-          setTimeout(() => setShake(false), 600);
+    // ================================================================
+    // TELA DE LOADING
+    // ================================================================
+    function LoadingScreen({ message }) {
+      return (
+        <div style={{ minHeight:'100vh', background:'#0A0612', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px', fontFamily:"'Space Grotesk',system-ui" }}>
+          <style>{`@import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;600;700&display=swap'); .bungee{font-family:'Bungee',system-ui,sans-serif;} .neon{text-shadow:0 0 10px currentColor,0 0 20px currentColor;} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          <h1 className="bungee neon" style={{ fontSize:'2.5rem', color:'#FFD600', margin:0 }}>HABIT<span style={{ color:'#FF3D9A' }}>CLAN</span></h1>
+          <div style={{ width:'36px', height:'36px', border:'3px solid rgba(255,255,255,0.1)', borderTop:'3px solid #FFD600', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+          <p style={{ color:'rgba(255,255,255,0.4)', fontSize:'12px', letterSpacing:'0.1em' }}>{message || 'CARREGANDO...'}</p>
+        </div>
+      );
+    }
+
+    // ================================================================
+    // TECLADO PIN — 4 círculos + numpad
+    // ================================================================
+    function PinKeypad({ title, subtitle, accentColor, onComplete, onBack, error, clearError }) {
+      const [digits, setDigits] = useState([]);
+
+      const addDigit = (d) => {
+        if (error) clearError();
+        if (digits.length >= 4) return;
+        const next = [...digits, d];
+        setDigits(next);
+        if (next.length === 4) {
+          setTimeout(() => onComplete(next.join('')), 120);
         }
       };
 
+      const removeDigit = () => {
+        if (error) clearError();
+        setDigits(digits.slice(0, -1));
+      };
+
+      useEffect(() => {
+        if (error) setDigits([]);
+      }, [error]);
+
+      const color = accentColor || '#FF3D9A';
+      const nums = [1,2,3,4,5,6,7,8,9,null,0,'⌫'];
+
       return (
-        <div style={{ minHeight: '100vh', background: '#0A0612', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'24px', padding:'24px 16px 40px', fontFamily:"'Space Grotesk',system-ui" }}>
+          <div style={{ textAlign:'center' }}>
+            <div className="bungee" style={{ fontSize:'1.4rem', color, marginBottom:'6px' }}>{title}</div>
+            <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.5)' }}>{subtitle}</div>
+          </div>
+
+          {/* 4 círculos */}
+          <div style={{ display:'flex', gap:'16px' }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{
+                width:'18px', height:'18px', borderRadius:'50%',
+                border: `2px solid ${digits.length > i ? color : 'rgba(255,255,255,0.2)'}`,
+                background: digits.length > i ? color : 'transparent',
+                boxShadow: digits.length > i ? `0 0 12px ${color}` : 'none',
+                transition: 'all 0.15s ease'
+              }} />
+            ))}
+          </div>
+
+          {/* Erro */}
+          {error && (
+            <div style={{ color:'#FF5252', fontSize:'13px', textAlign:'center', marginTop:'-8px' }}>
+              {error}
+            </div>
+          )}
+
+          {/* Numpad */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 72px)', gap:'12px' }}>
+            {nums.map((n, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  if (n === null) return;
+                  if (n === '⌫') removeDigit();
+                  else addDigit(String(n));
+                }}
+                disabled={n === null}
+                style={{
+                  width:'72px', height:'72px', borderRadius:'50%',
+                  background: n === null ? 'transparent' : 'rgba(255,255,255,0.07)',
+                  border: n === null ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: typeof n === 'number' ? '24px' : '20px',
+                  fontWeight: '600',
+                  cursor: n === null ? 'default' : 'pointer',
+                  fontFamily: 'inherit',
+                  transition: 'background 0.1s',
+                  WebkitTapHighlightColor: 'transparent',
+                  outline: 'none',
+                }}
+                onTouchStart={e => { if(n!==null) e.currentTarget.style.background='rgba(255,255,255,0.15)'; }}
+                onTouchEnd={e => { if(n!==null) e.currentTarget.style.background='rgba(255,255,255,0.07)'; }}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ================================================================
+    // TELA DE SELEÇÃO DE PERFIL
+    // ================================================================
+    function ProfileSelectScreen({ players, onSelectPlayer }) {
+      return (
+        <div style={{ minHeight:'100vh', background:'#0A0612', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px', fontFamily:"'Space Grotesk',system-ui" }}>
           <style>{`
             @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;600;700&display=swap');
-            @keyframes gridShift { 0% { background-position: 0 0; } 100% { background-position: 60px 60px; } }
-            @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
-            @keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-            .grid-bg { background-image: linear-gradient(rgba(255,61,154,0.08) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.08) 1px,transparent 1px); background-size:60px 60px; animation:gridShift 20s linear infinite; position:fixed;inset:0;pointer-events:none; }
-            .bungee { font-family:'Bungee',system-ui,sans-serif; }
-            .neon { text-shadow:0 0 10px currentColor,0 0 20px currentColor,0 0 40px currentColor; }
-            .login-card { animation: fadeIn 0.5s ease; }
-            .shake { animation: shake 0.4s ease; }
+            @keyframes fadeIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+            .bungee{font-family:'Bungee',system-ui,sans-serif;}
+            .neon{text-shadow:0 0 10px currentColor,0 0 20px currentColor,0 0 40px currentColor;}
+            .avatar-btn { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+            .avatar-btn:hover { transform: scale(1.08); }
+            .avatar-btn:active { transform: scale(0.95); }
           `}</style>
-          <div className="grid-bg" />
-          <div style={{ position:'relative',zIndex:1,width:'100%',maxWidth:'360px' }} className="login-card">
-            <div style={{ textAlign:'center',marginBottom:'32px' }}>
-              <h1 className="bungee neon" style={{ fontSize:'clamp(2.5rem,10vw,4rem)', color:'#FFD600', margin:0, lineHeight:1 }}>
-                HABIT<span style={{ color:'#FF3D9A' }}>CLAN</span>
-              </h1>
-              <p style={{ color:'rgba(255,255,255,0.5)', fontSize:'12px', marginTop:'8px', letterSpacing:'0.15em', textTransform:'uppercase' }}>
-                Área da Família
-              </p>
-            </div>
 
-            <div style={{ background:'rgba(0,0,0,0.6)', border:'2px solid rgba(255,255,255,0.1)', borderRadius:'24px', padding:'32px', backdropFilter:'blur(20px)' }}
-              className={shake ? 'shake' : ''}>
-              <div style={{ textAlign:'center', marginBottom:'24px' }}>
-                <div style={{ fontSize:'48px', marginBottom:'8px' }}>🔐</div>
-                <p style={{ color:'rgba(255,255,255,0.7)', fontSize:'14px', margin:0 }}>Digite a senha da família para entrar</p>
-              </div>
+          <div style={{ animation:'fadeIn 0.5s ease', width:'100%', maxWidth:'400px' }}>
+            <h1 className="bungee neon" style={{ fontSize:'clamp(2rem,10vw,3.5rem)', color:'#FFD600', textAlign:'center', marginBottom:'8px' }}>
+              HABIT<span style={{ color:'#FF3D9A' }}>CLAN</span>
+            </h1>
+            <p style={{ color:'rgba(255,255,255,0.4)', textAlign:'center', fontSize:'13px', letterSpacing:'0.1em', marginBottom:'40px', textTransform:'uppercase' }}>
+              Quem é você?
+            </p>
 
-              <input
-                type="password"
-                value={password}
-                onChange={e => { setPassword(e.target.value); setError(false); }}
-                onKeyDown={e => e.key === 'Enter' && submit()}
-                placeholder="Senha da família"
-                autoFocus
-                style={{
-                  width:'100%', padding:'14px 16px', borderRadius:'14px',
-                  background:'rgba(255,255,255,0.05)',
-                  border:`2px solid ${error ? '#FF5252' : 'rgba(255,255,255,0.1)'}`,
-                  color:'white', fontSize:'16px', fontFamily:'inherit',
-                  outline:'none', marginBottom:'8px', boxSizing:'border-box'
-                }}
-              />
-              {error && <p style={{ color:'#FF5252', fontSize:'12px', margin:'0 0 12px', textAlign:'center' }}>Senha incorreta. Tente novamente.</p>}
-
-              <button
-                onClick={submit}
-                style={{
-                  width:'100%', padding:'14px', borderRadius:'14px', border:'none',
-                  background:'linear-gradient(135deg,#FFD600,#FF3D9A)',
-                  color:'black', fontWeight:'800', fontSize:'15px',
-                  cursor:'pointer', fontFamily:"'Bungee',system-ui",
-                  letterSpacing:'0.05em', marginTop: error ? 0 : '12px',
-                  boxShadow:'0 0 20px rgba(255,61,154,0.5)'
-                }}>
-                ENTRAR
-              </button>
+            <div style={{ display:'grid', gridTemplateColumns: players.length <= 2 ? '1fr 1fr' : players.length === 3 ? '1fr 1fr 1fr' : '1fr 1fr', gap:'16px' }}>
+              {players.map(player => (
+                <button
+                  key={player.id}
+                  className="avatar-btn"
+                  onClick={() => onSelectPlayer(player)}
+                  style={{
+                    background: `linear-gradient(135deg, ${player.color}20, ${player.color}08)`,
+                    border: `2px solid ${player.color}60`,
+                    borderRadius: '24px',
+                    padding: '24px 16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px',
+                    cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent',
+                    boxShadow: `0 0 30px ${player.color}25`,
+                  }}
+                >
+                  <div style={{ fontSize:'56px', lineHeight:1, filter:`drop-shadow(0 0 16px ${player.color})` }}>
+                    {player.emoji}
+                  </div>
+                  <div className="bungee" style={{ color:'white', fontSize:'1.1rem', letterSpacing:'0.05em' }}>
+                    {player.name}
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
       );
     }
 
-    // Tela de carregamento
-    function LoadingScreen() {
+    // ================================================================
+    // TELA DE PIN (login ou cadastro)
+    // ================================================================
+    function PinScreen({ player, mode, onSuccess, onBack }) {
+      // mode: 'login' | 'setup_code' | 'setup_pin' | 'setup_confirm'
+      const [step, setStep] = useState(mode);
+      const [familyCodeInput, setFamilyCodeInput] = useState('');
+      const [firstPin, setFirstPin] = useState('');
+      const [error, setError] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [codeError, setCodeError] = useState('');
+
+      const handleLogin = async (pin) => {
+        setLoading(true);
+        try {
+          const authData = await window._firebase.readPlayerAuth(player.id);
+          if (!authData) {
+            setError('PIN não cadastrado. Cadastre-se primeiro.');
+            setLoading(false);
+            return;
+          }
+          const hash = await hashPin(pin);
+          if (hash === authData.pinHash) {
+            // Salva sessão localmente
+            localStorage.setItem('hc_session', JSON.stringify({
+              playerId: player.id,
+              playerName: player.name,
+              timestamp: Date.now()
+            }));
+            onSuccess(player);
+          } else {
+            setError('PIN incorreto. Tente novamente.');
+          }
+        } catch (e) {
+          setError('Erro ao verificar PIN.');
+        }
+        setLoading(false);
+      };
+
+      const handleSetupPin = async (pin) => {
+        setFirstPin(pin);
+        setStep('setup_confirm');
+      };
+
+      const handleConfirmPin = async (pin) => {
+        if (pin !== firstPin) {
+          setError('Os PINs não coincidem. Tente novamente.');
+          setFirstPin('');
+          setStep('setup_pin');
+          return;
+        }
+        setLoading(true);
+        try {
+          const hash = await hashPin(pin);
+          await window._firebase.writePlayerAuth(player.id, {
+            pinHash: hash,
+            createdAt: Date.now(),
+            playerName: player.name
+          });
+          localStorage.setItem('hc_session', JSON.stringify({
+            playerId: player.id,
+            playerName: player.name,
+            timestamp: Date.now()
+          }));
+          onSuccess(player);
+        } catch (e) {
+          setError('Erro ao salvar PIN. Tente novamente.');
+        }
+        setLoading(false);
+      };
+
+      const submitFamilyCode = () => {
+        if (familyCodeInput.trim() === FAMILY_CODE) {
+          setStep('setup_pin');
+        } else {
+          setCodeError('Código incorreto. Peça ao responsável da família.');
+        }
+      };
+
+      if (loading) return <LoadingScreen message="VERIFICANDO..." />;
+
       return (
-        <div style={{ minHeight:'100vh', background:'#0A0612', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'16px' }}>
-          <style>{`.bungee{font-family:'Bungee',system-ui,sans-serif;} .neon{text-shadow:0 0 10px currentColor,0 0 20px currentColor;} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          <h1 className="bungee neon" style={{ fontSize:'2.5rem', color:'#FFD600', margin:0 }}>HABIT<span style={{ color:'#FF3D9A' }}>CLAN</span></h1>
-          <div style={{ width:'36px', height:'36px', border:'3px solid rgba(255,255,255,0.1)', borderTop:'3px solid #FFD600', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
-          <p style={{ color:'rgba(255,255,255,0.4)', fontSize:'12px', letterSpacing:'0.1em' }}>CARREGANDO...</p>
+        <div style={{ minHeight:'100vh', background:'#0A0612', display:'flex', flexDirection:'column', fontFamily:"'Space Grotesk',system-ui" }}>
+          <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;600;700&display=swap');
+            .bungee{font-family:'Bungee',system-ui,sans-serif;}
+          `}</style>
+
+          {/* Header com voltar */}
+          <div style={{ display:'flex', alignItems:'center', padding:'16px', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+            <button onClick={onBack} style={{ background:'none', border:'none', color:'rgba(255,255,255,0.6)', fontSize:'14px', cursor:'pointer', display:'flex', alignItems:'center', gap:'6px', padding:'8px', fontFamily:'inherit' }}>
+              ← Voltar
+            </button>
+            <div style={{ flex:1, textAlign:'center' }}>
+              <span style={{ fontSize:'32px', filter:`drop-shadow(0 0 12px ${player.color})` }}>{player.emoji}</span>
+            </div>
+            <div style={{ width:'60px' }} />
+          </div>
+
+          <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'16px' }}>
+
+            {/* LOGIN */}
+            {step === 'login' && (
+              <PinKeypad
+                title={`Olá, ${player.name}!`}
+                subtitle="Digite seu PIN de 4 dígitos"
+                accentColor={player.color}
+                onComplete={handleLogin}
+                error={error}
+                clearError={() => setError('')}
+              />
+            )}
+
+            {/* SETUP — código da família */}
+            {step === 'setup_code' && (
+              <div style={{ width:'100%', maxWidth:'320px', display:'flex', flexDirection:'column', gap:'16px' }}>
+                <div style={{ textAlign:'center' }}>
+                  <div className="bungee" style={{ fontSize:'1.4rem', color: player.color, marginBottom:'6px' }}>
+                    Primeiro acesso
+                  </div>
+                  <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.5)', lineHeight:1.5 }}>
+                    Para se cadastrar, peça o código da família ao responsável.
+                  </div>
+                </div>
+                <input
+                  type="password"
+                  value={familyCodeInput}
+                  onChange={e => { setFamilyCodeInput(e.target.value); setCodeError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && submitFamilyCode()}
+                  placeholder="Código da família"
+                  autoFocus
+                  style={{
+                    width:'100%', padding:'14px 16px', borderRadius:'14px',
+                    background:'rgba(255,255,255,0.05)',
+                    border:`2px solid ${codeError ? '#FF5252' : 'rgba(255,255,255,0.1)'}`,
+                    color:'white', fontSize:'16px', fontFamily:'inherit',
+                    outline:'none', letterSpacing:'0.2em', textAlign:'center'
+                  }}
+                />
+                {codeError && <p style={{ color:'#FF5252', fontSize:'12px', textAlign:'center', margin:0 }}>{codeError}</p>}
+                <button
+                  onClick={submitFamilyCode}
+                  style={{
+                    width:'100%', padding:'14px', borderRadius:'14px', border:'none',
+                    background: `linear-gradient(135deg, ${player.color}, #FFD600)`,
+                    color:'black', fontWeight:'800', fontSize:'15px',
+                    cursor:'pointer', fontFamily:"'Bungee',system-ui"
+                  }}>
+                  CONTINUAR
+                </button>
+              </div>
+            )}
+
+            {/* SETUP — escolher PIN */}
+            {step === 'setup_pin' && (
+              <PinKeypad
+                title="Crie seu PIN"
+                subtitle={`Escolha 4 dígitos, ${player.name}`}
+                accentColor={player.color}
+                onComplete={handleSetupPin}
+                error={error}
+                clearError={() => setError('')}
+              />
+            )}
+
+            {/* SETUP — confirmar PIN */}
+            {step === 'setup_confirm' && (
+              <PinKeypad
+                title="Confirme seu PIN"
+                subtitle="Digite os mesmos 4 dígitos"
+                accentColor={player.color}
+                onComplete={handleConfirmPin}
+                error={error}
+                clearError={() => setError('')}
+              />
+            )}
+          </div>
         </div>
       );
     }
 
-    // Wrapper que gerencia auth + Firebase ready
+    // ================================================================
+    // APP WRAPPER — orquestra loading → perfil → pin → app
+    // ================================================================
     function AppWrapper() {
-      const [authed, setAuthed] = useState(false);
+      const [phase, setPhase] = useState('loading'); // loading | select | pin | app
+      const [players, setPlayers] = useState([]);
+      const [selectedPlayer, setSelectedPlayer] = useState(null);
+      const [pinMode, setPinMode] = useState('login');
+      const [currentUser, setCurrentUser] = useState(null);
       const [fbReady, setFbReady] = useState(false);
 
+      // Aguarda Firebase
       useEffect(() => {
-        // Checa se já autenticou antes (sessão salva)
-        const saved = localStorage.getItem('hc_auth');
-        if (saved && atob(saved) === FAMILY_PASSWORD) setAuthed(true);
-
-        // Espera Firebase ficar pronto
-        if (window._firebaseReady) {
-          setFbReady(true);
-        } else {
-          const handler = () => setFbReady(true);
-          window.addEventListener('firebaseReady', handler);
-          return () => window.removeEventListener('firebaseReady', handler);
-        }
+        const onReady = () => setFbReady(true);
+        if (window._firebaseReady) onReady();
+        else window.addEventListener('firebaseReady', onReady);
+        return () => window.removeEventListener('firebaseReady', onReady);
       }, []);
 
-      if (!authed) return React.createElement(LoginScreen, { onLogin: () => setAuthed(true) });
-      if (!fbReady) return React.createElement(LoadingScreen);
-      return React.createElement(HabitClan);
+      // Após Firebase pronto: carrega players e verifica sessão salva
+      useEffect(() => {
+        if (!fbReady) return;
+
+        (async () => {
+          // Carrega lista de jogadores do Firebase
+          let ps = [];
+          try {
+            const raw = await window._firebase.read('habitclan/players');
+            if (raw) ps = Array.isArray(raw) ? raw : Object.values(raw);
+          } catch (e) {}
+
+          // Fallback: jogadores padrão se ainda não há dados
+          if (!ps || ps.length === 0) {
+            ps = [
+              { id:'p1', name:'Papai', emoji:'🦾', color:'#00E5FF' },
+              { id:'p2', name:'Mamãe', emoji:'💫', color:'#FF3D9A' },
+              { id:'p3', name:'Filha 1', emoji:'🦄', color:'#FFD600' },
+              { id:'p4', name:'Filha 2', emoji:'🌈', color:'#76FF03' },
+            ];
+          }
+          setPlayers(ps);
+
+          // Verifica sessão local salva (auto-login)
+          try {
+            const session = JSON.parse(localStorage.getItem('hc_session') || 'null');
+            const SESSION_DAYS = 30;
+            if (session && Date.now() - session.timestamp < SESSION_DAYS * 86400000) {
+              const player = ps.find(p => p.id === session.playerId);
+              if (player) {
+                // Verifica se ainda tem PIN cadastrado
+                const authData = await window._firebase.readPlayerAuth(player.id);
+                if (authData) {
+                  setCurrentUser(player);
+                  setPhase('app');
+                  return;
+                }
+              }
+            }
+          } catch (e) {}
+
+          setPhase('select');
+        })();
+      }, [fbReady]);
+
+      const handleSelectPlayer = async (player) => {
+        setSelectedPlayer(player);
+        // Verifica se já tem PIN cadastrado
+        try {
+          const authData = await window._firebase.readPlayerAuth(player.id);
+          setPinMode(authData ? 'login' : 'setup_code');
+        } catch (e) {
+          setPinMode('setup_code');
+        }
+        setPhase('pin');
+      };
+
+      const handlePinSuccess = (player) => {
+        setCurrentUser(player);
+        setPhase('app');
+      };
+
+      const handleLogout = () => {
+        localStorage.removeItem('hc_session');
+        setCurrentUser(null);
+        setSelectedPlayer(null);
+        setPhase('select');
+      };
+
+      const handleResetPin = async (playerId) => {
+        // Só admin (Heitor - p1) pode resetar outros, qualquer um pode resetar o próprio
+        await window._firebase.writePlayerAuth(playerId, null);
+        // Remove sessão se for o próprio
+        const session = JSON.parse(localStorage.getItem('hc_session') || 'null');
+        if (session?.playerId === playerId) localStorage.removeItem('hc_session');
+      };
+
+      if (phase === 'loading') return <LoadingScreen />;
+      if (phase === 'select') return <ProfileSelectScreen players={players} onSelectPlayer={handleSelectPlayer} />;
+      if (phase === 'pin') return (
+        <PinScreen
+          player={selectedPlayer}
+          mode={pinMode}
+          onSuccess={handlePinSuccess}
+          onBack={() => setPhase('select')}
+        />
+      );
+
+      // App principal
+      return <HabitClan currentUser={currentUser} onLogout={handleLogout} onResetPin={handleResetPin} allPlayers={players} />;
     }
 
-    // ================================================================
-    // PATCH: substitui window.storage pelo Firebase adapter
-    // O código do HabitClan usa window.storage — aqui fazemos o bridge
-    // ================================================================
-    window.storage = firebaseStorage;
 
 
 // ============== SENHA FAMILIAR: Hecr1202 (definida no HTML wrapper)
@@ -410,7 +754,7 @@ const blendColors = (colors) => {
 };
 
 // ============== APP ==============
-function HabitClan() {
+function HabitClan({ currentUser, onLogout, onResetPin, allPlayers }) {
   const [view, setView] = useState('home');
   const [homeMode, setHomeMode] = useState('compact'); // 'compact' | 'detailed'
   const [players, setPlayers] = useState(DEFAULT_PLAYERS);
@@ -829,25 +1173,46 @@ function HabitClan() {
               </button>
             </div>
 
-            {/* TOGGLE DE VISÃO (só visível na home) */}
-            {view === 'home' && tasks.length > 0 && (
-              <div className="flex bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-1 flex-shrink-0">
-                <button
-                  onClick={() => { setHomeMode('compact'); playSound('click'); }}
-                  className={`p-2 rounded-lg transition-all ${homeMode === 'compact' ? 'bg-yellow-400 text-black' : 'text-white/60 hover:text-white'}`}
-                  title="Visão compacta"
-                >
-                  <List size={16} />
-                </button>
-                <button
-                  onClick={() => { setHomeMode('detailed'); playSound('click'); }}
-                  className={`p-2 rounded-lg transition-all ${homeMode === 'detailed' ? 'bg-yellow-400 text-black' : 'text-white/60 hover:text-white'}`}
-                  title="Visão detalhada"
-                >
-                  <LayoutGrid size={16} />
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Usuário logado */}
+              {currentUser && (
+                <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-2 sm:px-3 py-1.5">
+                  <span className="text-lg sm:text-xl" style={{ filter: `drop-shadow(0 0 6px ${currentUser.color})` }}>
+                    {currentUser.emoji}
+                  </span>
+                  <span className="text-xs sm:text-sm font-bold hidden sm:block" style={{ color: currentUser.color }}>
+                    {currentUser.name}
+                  </span>
+                  <button
+                    onClick={onLogout}
+                    className="text-white/40 hover:text-white/80 transition-colors ml-1"
+                    title="Trocar perfil"
+                  >
+                    <LogOut size={14} />
+                  </button>
+                </div>
+              )}
+
+              {/* TOGGLE DE VISÃO (só visível na home) */}
+              {view === 'home' && tasks.length > 0 && (
+                <div className="flex bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-1">
+                  <button
+                    onClick={() => { setHomeMode('compact'); playSound('click'); }}
+                    className={`p-2 rounded-lg transition-all ${homeMode === 'compact' ? 'bg-yellow-400 text-black' : 'text-white/60 hover:text-white'}`}
+                    title="Visão compacta"
+                  >
+                    <List size={16} />
+                  </button>
+                  <button
+                    onClick={() => { setHomeMode('detailed'); playSound('click'); }}
+                    className={`p-2 rounded-lg transition-all ${homeMode === 'detailed' ? 'bg-yellow-400 text-black' : 'text-white/60 hover:text-white'}`}
+                    title="Visão detalhada"
+                  >
+                    <LayoutGrid size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <nav className="flex gap-1.5 sm:gap-2 bg-black/40 backdrop-blur-sm p-1.5 sm:p-2 rounded-2xl border border-white/10 overflow-x-auto scrollbar-custom">
@@ -882,13 +1247,13 @@ function HabitClan() {
               <CompactHomeView players={players} tasks={tasks} getPoints={getPoints} getStreak={getStreak}
                 getTaskProgress={getTaskProgress} isTaskDone={isTaskDone} isTaskDoneToday={isTaskDoneToday}
                 onComplete={completeTask} onTaskAction={(taskId, playerId) => setShowTaskActionModal({ taskId, playerId })}
-                getTasksForPlayer={getTasksForPlayer} completions={completions} />
+                getTasksForPlayer={getTasksForPlayer} completions={completions} currentUser={currentUser} />
             ) : (
               <DetailedHomeView players={players} tasks={tasks} getPoints={getPoints} getStreak={getStreak}
                 getTaskProgress={getTaskProgress} isTaskDone={isTaskDone} isTaskDoneToday={isTaskDoneToday}
                 onComplete={completeTask} onTaskAction={(taskId, playerId) => setShowTaskActionModal({ taskId, playerId })}
                 getBadges={getBadges} getTasksForPlayer={getTasksForPlayer} getPointsForPlayer={getPointsForPlayer}
-                completions={completions} />
+                completions={completions} currentUser={currentUser} />
             )}
           </>
         )}
@@ -935,7 +1300,8 @@ function HabitClan() {
         <SettingsModal players={players} onClose={() => setShowSettingsModal(false)}
           onAddPlayer={() => { setShowSettingsModal(false); setShowPlayerModal('new'); }}
           onEditPlayer={(player) => { setShowSettingsModal(false); setShowPlayerModal(player); }}
-          onRemovePlayer={removePlayer} />
+          onRemovePlayer={removePlayer}
+          onResetPin={onResetPin} />
       )}
       {showPlayerModal && (
         <PlayerModal player={showPlayerModal === 'new' ? null : showPlayerModal}
@@ -1099,10 +1465,17 @@ function EmptyHome() {
 }
 
 // ============== HOME COMPACT (nova visão limpa) ==============
-function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, isTaskDoneToday, onComplete, onTaskAction, getTasksForPlayer, completions }) {
+function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, isTaskDoneToday, onComplete, onTaskAction, getTasksForPlayer, completions, currentUser }) {
   return (
     <div className="space-y-3">
-      {players.map(player => {
+      {[...players].sort((a, b) => {
+          if (currentUser) {
+            if (a.id === currentUser.id) return -1;
+            if (b.id === currentUser.id) return 1;
+          }
+          return 0;
+        }).map((player) => {
+        const isMe = currentUser && player.id === currentUser.id;
         const allPlayerTasks = getTasksForPlayer(player.id);
         // Tarefas ativas hoje (weekdays só seg-sex, weekend só sab-dom)
         const playerTasks = allPlayerTasks.filter(t => isFrequencyActiveToday(t.frequency));
@@ -1116,8 +1489,20 @@ function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress
         const completionPct = totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0;
 
         return (
-          <div key={player.id} className="bg-black/50 backdrop-blur-sm border-2 rounded-2xl p-3 sm:p-4"
-            style={{ borderColor: player.color + '60', boxShadow: `0 0 20px ${player.color}20` }}>
+          <div key={player.id}
+            className="bg-black/50 backdrop-blur-sm border-2 rounded-2xl p-3 sm:p-4"
+            style={{
+              borderColor: isMe ? player.color + 'cc' : player.color + '40',
+              boxShadow: isMe ? `0 0 30px ${player.color}50` : `0 0 10px ${player.color}10`,
+              background: isMe ? `linear-gradient(135deg, ${player.color}12, rgba(0,0,0,0.7))` : undefined,
+            }}>
+            {isMe && (
+              <div className="absolute -top-2.5 left-4">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: player.color, color: 'black' }}>
+                  VOCÊ
+                </span>
+              </div>
+            )}
 
             {/* Linha do jogador (tudo numa linha só) */}
             <div className="flex items-center gap-2 sm:gap-3 mb-3">
@@ -1221,21 +1606,28 @@ function CompactHomeView({ players, tasks, getPoints, getStreak, getTaskProgress
 }
 
 // ============== HOME DETAILED (a antiga, com cards maiores) ==============
-function DetailedHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, isTaskDoneToday, onComplete, onTaskAction, getBadges, getTasksForPlayer, getPointsForPlayer, completions }) {
+function DetailedHomeView({ players, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, isTaskDoneToday, onComplete, onTaskAction, getBadges, getTasksForPlayer, getPointsForPlayer, completions, currentUser }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 md:gap-5">
-      {players.map(player => (
+      {[...players].sort((a, b) => {
+          if (currentUser) {
+            if (a.id === currentUser.id) return -1;
+            if (b.id === currentUser.id) return 1;
+          }
+          return 0;
+        }).map(player => (
         <PlayerCardDetailed key={player.id} player={player} tasks={getTasksForPlayer(player.id)}
           getPoints={getPoints} getStreak={getStreak} getTaskProgress={getTaskProgress}
           isTaskDone={isTaskDone} isTaskDoneToday={isTaskDoneToday} onComplete={onComplete}
           onTaskAction={onTaskAction} getBadges={getBadges}
-          getPointsForPlayer={getPointsForPlayer} completions={completions} />
+          getPointsForPlayer={getPointsForPlayer} completions={completions}
+          isCurrentUser={currentUser && player.id === currentUser.id} />
       ))}
     </div>
   );
 }
 
-function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, isTaskDoneToday, onComplete, onTaskAction, getBadges, getPointsForPlayer, completions }) {
+function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgress, isTaskDone, isTaskDoneToday, onComplete, onTaskAction, getBadges, getPointsForPlayer, completions, isCurrentUser }) {
   const monthPts = getPoints(player.id, 'month');
   const dayPts = getPoints(player.id, 'day');
   const streak = getStreak(player.id);
@@ -1258,7 +1650,18 @@ function PlayerCardDetailed({ player, tasks, getPoints, getStreak, getTaskProgre
 
   return (
     <div className="relative bg-black/50 backdrop-blur-sm border-2 rounded-2xl sm:rounded-3xl p-3 sm:p-4 md:p-5 flex flex-col"
-      style={{ borderColor: player.color + '80', boxShadow: `0 0 30px ${player.color}30` }}>
+      style={{
+        borderColor: isCurrentUser ? player.color + 'dd' : player.color + '50',
+        boxShadow: isCurrentUser ? `0 0 40px ${player.color}60` : `0 0 15px ${player.color}20`,
+        background: isCurrentUser ? `linear-gradient(135deg, ${player.color}15, rgba(0,0,0,0.7))` : undefined,
+      }}>
+      {isCurrentUser && (
+        <div className="absolute -top-3 left-4 z-10">
+          <span className="bungee text-[10px] px-2.5 py-0.5 rounded-full" style={{ background: player.color, color: 'black' }}>
+            VOCÊ
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-white/5">
         <div className="text-4xl sm:text-5xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 15px ${player.color})` }}>
           {player.emoji}
@@ -2375,7 +2778,7 @@ function Field({ label, children }) {
 }
 
 // ============== MODAL: CONFIGURAÇÕES ==============
-function SettingsModal({ players, onClose, onAddPlayer, onEditPlayer, onRemovePlayer }) {
+function SettingsModal({ players, onClose, onAddPlayer, onEditPlayer, onRemovePlayer, onResetPin }) {
   return (
     <BottomSheet onClose={onClose} title="⚙️ FAMÍLIA" accentColor="#00E5FF">
       <div className="space-y-3 mb-4">
@@ -2393,6 +2796,17 @@ function SettingsModal({ players, onClose, onAddPlayer, onEditPlayer, onRemovePl
               <button onClick={() => onEditPlayer(p)}
                 className="text-cyan-400 hover:bg-cyan-500/10 p-2 rounded-lg transition-colors flex-shrink-0" title="Editar">
                 <Edit2 size={16} />
+              </button>
+              <button
+                onClick={async () => {
+                  if (confirm(`Resetar PIN de ${p.name}? Ela precisará se cadastrar novamente.`)) {
+                    await onResetPin(p.id);
+                    alert(`PIN de ${p.name} resetado com sucesso.`);
+                  }
+                }}
+                className="text-yellow-400 hover:bg-yellow-500/10 p-2 rounded-lg transition-colors flex-shrink-0"
+                title="Resetar PIN">
+                <KeyRound size={16} />
               </button>
               <button
                 onClick={() => { if (confirm(`Remover ${p.name}? Todos os dados dessa pessoa serão apagados.`)) onRemovePlayer(p.id); }}
